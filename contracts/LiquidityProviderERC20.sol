@@ -8,8 +8,8 @@ contract LiquidityProviderERC20 is ERC20, Ownable {
     constructor(
         string memory name, 
         string memory symbol, 
-        address owner)
-    ERC20(name, symbol) Ownable(owner) {}
+        address owner
+    ) ERC20(name, symbol) Ownable(owner) {}
 
     function mint(address account, uint256 amount) external onlyOwner {
         _mint(account, amount);
