@@ -2,6 +2,7 @@
 pragma solidity ^0.8.28;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { ERC20Lp } from "./ERC20Lp.sol";
 import { IDEXPoolDeployer } from "./interfaces/IDEXPoolDeployer.sol";
 import { IDEXPool } from "./interfaces/IDEXPool.sol";
 
@@ -9,19 +10,20 @@ import { IDEXPool } from "./interfaces/IDEXPool.sol";
  * explanation:
  * we want to exchange dx of token0:
  ************************************
- 1. (x + dx)(y - dy) = xy
- 2. y - dy = xy / (x + dx)
- 3. dy = y - xy / (x + dx) = (xy + y * dx - xy) / (x + dx) = y * dx / (x + dx)
+ * (x + dx)(y - dy) = xy        (1) 
+ * y - dy = xy / (x + dx)       (2)
+ * dy = y - xy / (x + dx) = (xy + y * dx - xy) / (x + dx) = y * dx / (x + dx)       (3)
 */
 
 contract DEXPool is IDEXPool {
     address immutable public factory;
     address immutable public token0;
     address immutable public token1;
+    address immutable public lpToken;
     uint24 immutable public fee;
 
     constructor() {
-        (factory, token0, token1, fee) = IDEXPoolDeployer(msg.sender).parameters();
+        (factory, token0, token1, lpToken, fee) = IDEXPoolDeployer(msg.sender).parameters();
     }
 
     /**
@@ -83,11 +85,28 @@ contract DEXPool is IDEXPool {
             ? (getReserve0(), getReserve1())
             : (getReserve1(), getReserve0());
 
-        uint256 requiredAmount = amountIn * _reserve1 / _reserve0;
+        uint256 amountWithFee = amountIn * (100 - fee);
+        uint256 requiredAmount = amountWithFee * _reserve1 / (_reserve0 * 100 + amountWithFee);
+
         return requiredAmount;
     }
 
-    // @example: slipperage: 100 tokenOut за 1 tokenIn, slip: 1%, amountOutMin = 99 tokenOut
+    /**
+     * @dev Calculates the amounts of token0 and token1 corresponding to a given amount of LP tokens.
+     * @param amount The amount of LP tokens.
+     * @return token0Amount The amount of token0 corresponding to the LP tokens.
+     * @return token1Amount The amount of token1 corresponding to the LP tokens.
+     */
+    function getAmountsFromLp(uint amount) public view returns (uint256, uint256) {
+        ERC20Lp _lpToken = ERC20Lp(lpToken);
+        uint256 _totalSupply = _lpToken.totalSupply();
+        uint256 token0Amount = (IERC20(token0).balanceOf(address(this)) * amount) / _totalSupply;
+        uint256 token1Amount = (IERC20(token1).balanceOf(address(this)) * amount) / _totalSupply;
+
+        return (token0Amount, token1Amount);
+    }
+
+    // @example: Slippage: 100 tokenOut за 1 tokenIn, slip: 1%, amountOutMin = 99 tokenOut
 
     /**
      * @dev Executes a token swap between token0 and token1.
@@ -101,7 +120,7 @@ contract DEXPool is IDEXPool {
         bool zeroToOne
     ) external {
         uint256 amountOut = getOutputAmount(amountIn, zeroToOne);
-        require(amountOut >= amountOutMin, InsufficientSlipperage());
+        require(amountOut >= amountOutMin, BadSlippage());
 
         (address _token0, address _token1) = zeroToOne 
             ? (token0, token1) 
@@ -116,7 +135,7 @@ contract DEXPool is IDEXPool {
     // @example: reserve0 = 100, reserve1 = 10
     // * wanna add: amount0In = 200
     // * requiredTokens = amount0In * reserve1 / reserve0 = 200 * 10 / 100 = 20 == amount1In
-
+    // * lp tokens: LP_issued = Total_LP * (ΔL / Total_L)
     /**
      * @dev Allows a user to add liquidity to the pool by providing both tokens.
      * @param amount0In The amount of token0 to add.
@@ -130,6 +149,8 @@ contract DEXPool is IDEXPool {
         if (getReserve0() == 0) {
             IERC20(token0).transferFrom(msg.sender, address(this), amount0In);
             IERC20(token1).transferFrom(msg.sender, address(this), amount1In);
+
+            ERC20Lp(lpToken).mint(msg.sender, amount0In);
         } else {
             // always considering that token0 is first token
             uint256 requiredAmount = getAmountToAdd(amount0In, true);        
@@ -137,8 +158,33 @@ contract DEXPool is IDEXPool {
 
             IERC20(token0).transferFrom(msg.sender, address(this), amount0In);
             IERC20(token1).transferFrom(msg.sender, address(this), requiredAmount);
+            
+            // mint LP tokens 
+            ERC20Lp lp = ERC20Lp(lpToken);
+            uint256 lpIssued = (lp.totalSupply() * amount0In) / getReserve0();
+
+            lp.mint(msg.sender, lpIssued);
         }
 
         emit AddLiquidity(msg.sender, amount0In, amount1In);
+    }
+
+    /**
+     * @dev Allows a user to remove liquidity from the pool by burning LP tokens.
+     * @param amount The amount of LP tokens to burn.
+     */
+    function removeLiquidity(
+        uint256 amount // lp token amount
+    ) external {
+        require(amount > 0, InvalidInputAmount());
+
+        (uint256 token0Amount, uint256 token1Amount) = getAmountsFromLp(amount);
+        ERC20Lp _lpToken = ERC20Lp(lpToken);
+
+        _lpToken.burn(msg.sender, amount);
+        IERC20(token0).transfer(msg.sender, token0Amount);
+        IERC20(token1).transfer(msg.sender, token1Amount);
+
+        emit RemoveLiquidity(msg.sender, amount);
     }
 }

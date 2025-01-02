@@ -6,7 +6,7 @@ interface IDEXPool {
 
     error InsufficientBalance();
 
-    error InsufficientSlipperage();
+    error BadSlippage();
 
     error WrongLiquidityAmout(
         uint256 required, 
@@ -26,6 +26,11 @@ interface IDEXPool {
         uint256 amount1In
     );
 
+    event RemoveLiquidity(
+        address indexed account,
+        uint256 amount
+    );
+
     function swap(
         uint256 amountIn, 
         uint256 amountOutMin, 
@@ -35,6 +40,10 @@ interface IDEXPool {
     function addLiquidity(
         uint256 amount0In,
         uint256 amount1In
+    ) external;
+
+    function removeLiquidity(
+        uint256 amount
     ) external;
 
     function getReserve0() external view returns (uint256);

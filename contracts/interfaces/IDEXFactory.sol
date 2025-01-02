@@ -23,7 +23,12 @@ interface IDEXFactory {
 
     function getPool(address token0, address token1) external view returns (address);
 
-    function createPool(address token0, address token1, uint24 fee) external returns (address);
+    function createPool(
+        address token0,
+        address token1,
+        string memory name,
+        string memory symbol,
+        uint24 fee) external returns (address);
 
     function getFee(address pool) external view returns (uint24);
 }

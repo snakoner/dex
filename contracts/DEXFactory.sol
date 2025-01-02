@@ -36,12 +36,14 @@ contract DEXFactory is IDEXFactory, DEXPoolDeployer {
     function createPool(
         address token0, 
         address token1, 
+        string memory name,
+        string memory symbol,
         uint24 fee) 
     external onlyOwner returns (address) {
         require(_pools[token0][token1] == address(0), PoolAlreadyExist());
         require(token0 != address(0) && token1 != address(0), TokenAddressIsZero());
         (address tokenA, address tokenB) = token0 < token1 ? (token0, token1) : (token1, token0);
-        address pool = deploy(address(this), tokenA, tokenB, fee);
+        address pool = deploy(address(this), tokenA, tokenB, name, symbol, fee);
 
         _pools[tokenA][tokenB] = pool;
         _pools[tokenB][tokenA] = pool;
