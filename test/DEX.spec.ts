@@ -3,14 +3,13 @@ import { loadFixture, ethers, expect } from "./setup";
 const poolABI = [
     "function getReserve0() public view returns (uint256)",
     "function getReserve1() public view returns (uint256)",
-    "function getOutputAmount(uint256 amount, bool zeroToOne) public view returns (uint256)",
     "function getFactory() public view returns (address)",
     "function getAmountToAdd(uint256 amountIn, bool zeroToOne) public view returns (uint256)",
     "function getAmountsFromLp(uint amount) public view returns (uint256, uint256)",
     "function swap(uint256 amountIn, uint256 amountOutMin, bool zeroToOne) external",
     "function addLiquidity(uint256 amount0In, uint256 amount1In) external",
     "function removeLiquidity(uint256 amount) external",
-
+    "function getOutputAmount(uint256 amount, uint256 inReserve, uint256 outReserve) public view returns (uint256)",
     "function lpToken() public view returns (address)",
 ];
 
@@ -74,7 +73,7 @@ describe("DEX test", function() {
             mint0Value: 1000000000,
             mint1Value: 20000000,
             amount0In: 10000000,
-            amount1In: 200000,
+            amount1In: 10000000,
         };
 
         await aToken.mint(owner.address, addLiquidityData.mint0Value);
@@ -97,7 +96,7 @@ describe("DEX test", function() {
 
         // 1+. add some more liquidity
         const addLiquidity2Data = {
-            amount0In: 100000,
+            amount0In: 1000,
             amount1In: 0, // calculate later
         };
 
@@ -112,9 +111,9 @@ describe("DEX test", function() {
         // 1. swap A -> B
         // add some tokens to owner
         const swapData = {
-            amountIn: 40000,
+            amountIn: 1000,
             amountOutMin: 0,    // calc later
-            slippage: 1,
+            slippage: 10,
         };
 
         await aToken.mint(owner.address, swapData.amountIn);
@@ -123,18 +122,21 @@ describe("DEX test", function() {
         expect(await poolContract.getReserve1()).to.be.eq(ethers.toBigInt(addLiquidityData.amount1In) + ethers.toBigInt(addLiquidity2Data.amount1In));
 
         const price = Number(await poolContract.getReserve0()) / Number(await poolContract.getReserve1());
-        const minOut = Math.floor(swapData.amountIn / price * (1 - swapData.slippage / 100.));
+        const minOut = Math.floor((swapData.amountIn / price * (1 - (swapData.slippage + fee) / 1000.)));
         swapData.amountOutMin = minOut;
 
         console.log(price);
-        console.log(minOut);
+        console.log("minOut = ", minOut);
         console.log("A/B price: ", (await poolContract.getReserve0()) / (await poolContract.getReserve1()));
         console.log("B/A price: ", Number(await poolContract.getReserve1()) / Number(await poolContract.getReserve0()));
 
-        let swappedBAmount = await poolContract.getOutputAmount(swapData.amountIn, true);
+        const inReserve = await poolContract.getReserve0();
+        const outReserve = await poolContract.getReserve1();
+        let swappedBAmount = await poolContract.getOutputAmount(swapData.amountIn, inReserve, outReserve);
         console.log("will receive about A->B: ", swappedBAmount);
 
         await aToken.approve(poolAddress, swapData.amountIn);
+
 
         // 2. swap
         await poolContract.swap(
@@ -162,9 +164,5 @@ describe("DEX test", function() {
 
         console.log("reserve A: ", await poolContract.getReserve0());
         console.log("reserve B: ", await poolContract.getReserve1());
-
-
-        // 989900000
-        // 10140000
     });
 })
