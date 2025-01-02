@@ -53,7 +53,6 @@ contract DEXPool is IDEXPool {
         return factory;
     }
 
-    error Test(uint256 value);
     /**
      * @dev Calculates the output amount of the opposite token for a given input amount.
      * @param amount The input amount of the token being swapped.
