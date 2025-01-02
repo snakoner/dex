@@ -8,6 +8,11 @@ interface IDEXPool {
 
     error InsufficientSlipperage();
 
+    error WrongLiquidityAmout(
+        uint256 required, 
+        uint256 value
+    );
+
     event SwapTokens(
         address indexed account,
         uint256 amountIn,
@@ -15,11 +20,22 @@ interface IDEXPool {
         bool zeroToOne
     );
 
+    event AddLiquidity(
+        address indexed account,
+        uint256 amount0In,
+        uint256 amount1In
+    );
+
     function swap(
         uint256 amountIn, 
         uint256 amountOutMin, 
         bool zeroToOne) 
     external;
+
+    function addLiquidity(
+        uint256 amount0In,
+        uint256 amount1In
+    ) external;
 
     function getReserve0() external view returns (uint256);
 

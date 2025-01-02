@@ -4,11 +4,14 @@ const poolABI = [
     "function getReserve0() public view returns (uint256)",
     "function getReserve1() public view returns (uint256)",
     "function getOutputAmount(uint256 amount, bool zeroToOne) public view returns (uint256)",
+    "function getFactory() public view returns (address)",
+    "function getAmountToAdd(uint256 amountIn, bool zeroToOne) public view returns (uint256)",
     "function swap(uint256 amountIn, uint256 amountOutMin, bool zeroToOne) external",
+    "function addLiquidity(uint256 amount0In, uint256 amount1In) external",
 ];
 
 describe("DEX test", function() {
-        async function deploy() {
+    async function deploy() {
         const owner = (await ethers.getSigners())[0];
         const parts = (await ethers.getSigners()).slice(1, 10);
         
@@ -33,30 +36,37 @@ describe("DEX test", function() {
     it ("should be create pool", async function() {
         const {factory, aToken, bToken, owner, parts} = await loadFixture(deploy);        
         const fee = 2;
+
+        // 0. deploy pool
         await factory.createPool(
             await aToken.getAddress(),
             await bToken.getAddress(),
             fee
         );
-
         const poolAddress = await factory.getPool(await aToken.getAddress(),
                                 await bToken.getAddress());
+        const poolContract = new ethers.Contract(poolAddress, poolABI, owner);
 
         expect(poolAddress).to.be.not.eq(ethers.ZeroAddress);
 
+        // 1. add some liquidity
+        const addLiquidityData = {
+            amount0In: 10000000,
+            amount1In: 200000,
+        };
 
-        // add some liquidity
-        const liquidityA = 10000000;
-        const liquidityB = 200000;
+        await aToken.mint(owner.address, addLiquidityData.amount0In);
+        await bToken.mint(owner.address, addLiquidityData.amount1In);
 
-        await aToken.mint(poolAddress, liquidityA);
-        await bToken.mint(poolAddress, liquidityB);
+        expect(await aToken.totalSupply()).to.be.eq(addLiquidityData.amount0In);
+        expect(await bToken.totalSupply()).to.be.eq(addLiquidityData.amount1In);
 
-        expect(await aToken.totalSupply()).to.be.eq(liquidityA);
-        expect(await bToken.totalSupply()).to.be.eq(liquidityB);
+        expect(await aToken.balanceOf(owner.address)).to.be.eq(addLiquidityData.amount0In);
+        expect(await bToken.balanceOf(owner.address)).to.be.eq(addLiquidityData.amount1In);
 
-        expect(await aToken.balanceOf(poolAddress)).to.be.eq(liquidityA);
-        expect(await bToken.balanceOf(poolAddress)).to.be.eq(liquidityB);
+        await aToken.approve(await poolContract.getAddress(), addLiquidityData.amount0In);
+        await bToken.approve(await poolContract.getAddress(), addLiquidityData.amount1In);
+        await poolContract.addLiquidity(addLiquidityData.amount0In, addLiquidityData.amount1In);
 
         // 1. swap A -> B
         // add some tokens to owner
@@ -68,10 +78,8 @@ describe("DEX test", function() {
 
         await aToken.mint(owner.address, swapData.amountIn);
 
-        const poolContract = new ethers.Contract(poolAddress, poolABI, owner);
-
-        expect(await poolContract.getReserve0()).to.be.eq(liquidityA);
-        expect(await poolContract.getReserve1()).to.be.eq(liquidityB);
+        expect(await poolContract.getReserve0()).to.be.eq(addLiquidityData.amount0In);
+        expect(await poolContract.getReserve1()).to.be.eq(addLiquidityData.amount1In);
 
         const price = Number(await poolContract.getReserve0()) / Number(await poolContract.getReserve1());
         const minOut = Math.floor(swapData.amountIn / price * (1 - swapData.slipperage / 100.));
@@ -87,7 +95,7 @@ describe("DEX test", function() {
 
         await aToken.approve(poolAddress, swapData.amountIn);
 
-        // swap
+        // 2. swap
         await poolContract.swap(
             ethers.toBigInt(swapData.amountIn), 
             ethers.toBigInt(swapData.amountOutMin), 
