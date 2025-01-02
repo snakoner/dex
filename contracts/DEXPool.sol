@@ -7,8 +7,6 @@ import { IDEXPoolDeployer } from "./interfaces/IDEXPoolDeployer.sol";
 import { IDEXPool } from "./interfaces/IDEXPool.sol";
 import { LiquidityProviderERC20 } from "./LiquidityProviderERC20.sol";
 
-import "hardhat/console.sol";
-
 /*
  * explanation:
  * we want to exchange dx of token0:
