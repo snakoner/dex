@@ -5,7 +5,7 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import { IDEXPoolDeployer } from "./interfaces/IDEXPoolDeployer.sol";
 import { IDEXPool } from "./interfaces/IDEXPool.sol";
-import { ERC20Lp } from "./ERC20Lp.sol";
+import { LiquidityProviderERC20 } from "./LiquidityProviderERC20.sol";
 
 import "hardhat/console.sol";
 
@@ -97,7 +97,7 @@ contract DEXPool is IDEXPool {
      * @return token1Amount The amount of token1 corresponding to the LP tokens.
      */
     function getAmountsFromLp(uint amount) public view returns (uint256, uint256) {
-        ERC20Lp _lpToken = ERC20Lp(lpToken);
+        LiquidityProviderERC20 _lpToken = LiquidityProviderERC20(lpToken);
         uint256 _totalSupply = _lpToken.totalSupply();
         uint256 token0Amount = (IERC20(token0).balanceOf(address(this)) * amount) / _totalSupply;
         uint256 token1Amount = (IERC20(token1).balanceOf(address(this)) * amount) / _totalSupply;
@@ -154,7 +154,7 @@ contract DEXPool is IDEXPool {
             IERC20(token0).transferFrom(msg.sender, address(this), amount0In);
             IERC20(token1).transferFrom(msg.sender, address(this), amount1In);
 
-            ERC20Lp(lpToken).mint(msg.sender, amount0In);
+            LiquidityProviderERC20(lpToken).mint(msg.sender, amount0In);
         } else {
             // always considering that token0 is first token
             uint256 requiredAmount = getAmountToAdd(amount0In, true);        
@@ -164,7 +164,7 @@ contract DEXPool is IDEXPool {
             IERC20(token1).transferFrom(msg.sender, address(this), requiredAmount);
             
             // mint LP tokens 
-            ERC20Lp lp = ERC20Lp(lpToken);
+            LiquidityProviderERC20 lp = LiquidityProviderERC20(lpToken);
             uint256 lpIssued = (lp.totalSupply() * amount0In) / getReserve0();
 
             lp.mint(msg.sender, lpIssued);
@@ -183,7 +183,7 @@ contract DEXPool is IDEXPool {
         require(amount > 0, InvalidInputAmount());
 
         (uint256 token0Amount, uint256 token1Amount) = getAmountsFromLp(amount);
-        ERC20Lp _lpToken = ERC20Lp(lpToken);
+        LiquidityProviderERC20 _lpToken = LiquidityProviderERC20(lpToken);
 
         _lpToken.burn(msg.sender, amount);
         IERC20(token0).transfer(msg.sender, token0Amount);

@@ -4,7 +4,7 @@ pragma solidity ^0.8.28;
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { DEXPool } from "./DEXPool.sol";
 import { IDEXPoolDeployer } from "./interfaces/IDEXPoolDeployer.sol";
-import { ERC20Lp } from "./ERC20Lp.sol";
+import { LiquidityProviderERC20 } from "./LiquidityProviderERC20.sol";
 
 contract DEXPoolDeployer is IDEXPoolDeployer {
     struct Parameters {
@@ -37,7 +37,7 @@ contract DEXPoolDeployer is IDEXPoolDeployer {
         uint24 fee
     ) internal returns (address) {
         // Create a new LP token with the specified name and symbol.
-        address lpToken = address(new ERC20Lp(name, symbol, address(this)));
+        address lpToken = address(new LiquidityProviderERC20(name, symbol, address(this)));
 
         // Initialize parameters for the new pool.
         parameters = Parameters({
@@ -52,7 +52,7 @@ contract DEXPoolDeployer is IDEXPoolDeployer {
         address pool = address(new DEXPool{salt: keccak256(abi.encode(token0, token1, fee))}());
         
         // Transfer ownership of the LP token contract to the newly deployed pool.
-        ERC20Lp(lpToken).transferOwnership(pool);
+        LiquidityProviderERC20(lpToken).transferOwnership(pool);
 
         // Clear parameters after deployment to optimize gas usage.
         delete parameters;
