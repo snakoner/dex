@@ -37,7 +37,7 @@ contract DEXFactory is IDEXFactory, DEXPoolDeployer {
         address token0, 
         address token1, 
         uint24 fee) 
-    external returns (address) {
+    external onlyOwner returns (address) {
         require(_pools[token0][token1] == address(0), PoolAlreadyExist());
         require(token0 != address(0) && token1 != address(0), TokenAddressIsZero());
         (address tokenA, address tokenB) = token0 < token1 ? (token0, token1) : (token1, token0);

@@ -1,12 +1,10 @@
-import { token } from "../typechain-types/@openzeppelin/contracts";
 import { loadFixture, ethers, expect } from "./setup";
-import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/src/signers";
 
 const poolABI = [
     "function getReserve0() public view returns (uint256)",
     "function getReserve1() public view returns (uint256)",
     "function getOutputAmount(uint256 amount, bool zeroToOne) public view returns (uint256)",
-    "function swap(uint256 amount, bool zeroToOne) external"
+    "function swap(uint256 amountIn, uint256 amountOutMin, bool zeroToOne) external",
 ];
 
 describe("DEX test", function() {
@@ -60,30 +58,46 @@ describe("DEX test", function() {
         expect(await aToken.balanceOf(poolAddress)).to.be.eq(liquidityA);
         expect(await bToken.balanceOf(poolAddress)).to.be.eq(liquidityB);
 
+        // 1. swap A -> B
         // add some tokens to owner
-        const swapAToBAmount = 40000;
-        await aToken.mint(owner.address, swapAToBAmount);
+        const swapData = {
+            amountIn: 40000,
+            amountOutMin: 0,    // calc later
+            slipperage: 1,
+        };
+
+        await aToken.mint(owner.address, swapData.amountIn);
 
         const poolContract = new ethers.Contract(poolAddress, poolABI, owner);
 
         expect(await poolContract.getReserve0()).to.be.eq(liquidityA);
         expect(await poolContract.getReserve1()).to.be.eq(liquidityB);
 
+        const price = Number(await poolContract.getReserve0()) / Number(await poolContract.getReserve1());
+        const minOut = Math.floor(swapData.amountIn / price * (1 - swapData.slipperage / 100.));
+        swapData.amountOutMin = minOut;
+
+        console.log(price);
+        console.log(minOut);
         console.log("A/B price: ", (await poolContract.getReserve0()) / (await poolContract.getReserve1()));
         console.log("B/A price: ", Number(await poolContract.getReserve1()) / Number(await poolContract.getReserve0()));
 
-        let swappedBAmount = await poolContract.getOutputAmount(swapAToBAmount, true);
-        console.log("will receive A->B: ", swappedBAmount);
+        let swappedBAmount = await poolContract.getOutputAmount(swapData.amountIn, true);
+        console.log("will receive about A->B: ", swappedBAmount);
 
-        await aToken.approve(poolAddress, swapAToBAmount);
-        await poolContract.swap(ethers.toBigInt(swapAToBAmount), true);
+        await aToken.approve(poolAddress, swapData.amountIn);
+
+        // swap
+        await poolContract.swap(
+            ethers.toBigInt(swapData.amountIn), 
+            ethers.toBigInt(swapData.amountOutMin), 
+            true
+        );
 
         console.log("owner balance A: ", await aToken.balanceOf(owner.address));
         console.log("owner balance B: ", await bToken.balanceOf(owner.address));
 
         expect(await aToken.balanceOf(owner.address)).to.be.eq(0);
         expect(await bToken.balanceOf(owner.address)).to.be.eq(swappedBAmount);
-
-        swappedBAmount = await poolContract.getOutputAmount(swapAToBAmount, true);
     });
 })
