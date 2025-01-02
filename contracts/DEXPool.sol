@@ -97,8 +97,7 @@ contract DEXPool is IDEXPool {
      * @return token1Amount The amount of token1 corresponding to the LP tokens.
      */
     function getAmountsFromLp(uint amount) public view returns (uint256, uint256) {
-        LiquidityProviderERC20 _lpToken = LiquidityProviderERC20(lpToken);
-        uint256 _totalSupply = _lpToken.totalSupply();
+        uint256 _totalSupply = LiquidityProviderERC20(lpToken).totalSupply();
         uint256 token0Amount = (IERC20(token0).balanceOf(address(this)) * amount) / _totalSupply;
         uint256 token1Amount = (IERC20(token1).balanceOf(address(this)) * amount) / _totalSupply;
 
