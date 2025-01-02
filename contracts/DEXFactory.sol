@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { IDEXFactory } from "./interfaces/IDEXFactory.sol";
 import { DEXPoolDeployer } from "./DEXPoolDeployer.sol";
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
 contract DEXFactory is IDEXFactory, DEXPoolDeployer, Ownable {
     // Mapping to store the fee associated with each pool

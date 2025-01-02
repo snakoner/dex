@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
+import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { DEXPool } from "./DEXPool.sol";
 import { IDEXPoolDeployer } from "./interfaces/IDEXPoolDeployer.sol";
-import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { ERC20Lp } from "./ERC20Lp.sol";
 
 contract DEXPoolDeployer is IDEXPoolDeployer {

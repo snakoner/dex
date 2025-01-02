@@ -6,7 +6,10 @@ interface IDEXPool {
 
     error InsufficientBalance();
 
-    error BadSlippage();
+    error BadSlippage(
+        uint256 minAmount, 
+        uint256 requiredAmount
+    );
 
     error WrongLiquidityAmout(
         uint256 required, 

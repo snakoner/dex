@@ -2,9 +2,12 @@
 pragma solidity ^0.8.28;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { ERC20Lp } from "./ERC20Lp.sol";
+
 import { IDEXPoolDeployer } from "./interfaces/IDEXPoolDeployer.sol";
 import { IDEXPool } from "./interfaces/IDEXPool.sol";
+import { ERC20Lp } from "./ERC20Lp.sol";
+
+import "hardhat/console.sol";
 
 /*
  * explanation:
@@ -20,7 +23,7 @@ contract DEXPool is IDEXPool {
     address immutable public token0;
     address immutable public token1;
     address immutable public lpToken;
-    uint24 immutable public fee;
+    uint24 immutable public fee;    // 10e3
 
     constructor() {
         (factory, token0, token1, lpToken, fee) = IDEXPoolDeployer(msg.sender).parameters();
@@ -50,25 +53,23 @@ contract DEXPool is IDEXPool {
         return factory;
     }
 
+    error Test(uint256 value);
     /**
      * @dev Calculates the output amount of the opposite token for a given input amount.
      * @param amount The input amount of the token being swapped.
-     * @param zeroToOne A boolean indicating the direction of the swap. True if swapping from token0 to token1, false otherwise.
+     * @param inReserve The input reserve of the token being swapped.
+     * @param outReserve The output reserve of the token being swapped.
      * @return The calculated output amount of the opposite token.
     */
     function getOutputAmount(
         uint256 amount, 
-        bool zeroToOne
+        uint256 inReserve,
+        uint256 outReserve
     ) public view returns (uint256) {
-        require(amount > 0, InvalidInputAmount());
-        (uint256 _reserve0, uint256 _reserve1) = zeroToOne 
-            ? (getReserve0(), getReserve1()) 
-            : (getReserve1(), getReserve0());
+        uint256 amountWithFee = amount * (1000 - fee);
+        uint256 outAmount = (amountWithFee * outReserve) / ((inReserve * 1000) + amountWithFee);
 
-        // probably unused
-        require(_reserve0 > 0 && _reserve1 > 0, InsufficientBalance());
-
-        return _reserve1 * amount / (_reserve0 + amount);
+        return outAmount;
     }
 
     /**
@@ -85,8 +86,7 @@ contract DEXPool is IDEXPool {
             ? (getReserve0(), getReserve1())
             : (getReserve1(), getReserve0());
 
-        uint256 amountWithFee = amountIn * (100 - fee);
-        uint256 requiredAmount = amountWithFee * _reserve1 / (_reserve0 * 100 + amountWithFee);
+        uint256 requiredAmount = amountIn * _reserve1 / (_reserve0 + amountIn);
 
         return requiredAmount;
     }
@@ -119,8 +119,13 @@ contract DEXPool is IDEXPool {
         uint256 amountOutMin, 
         bool zeroToOne
     ) external {
-        uint256 amountOut = getOutputAmount(amountIn, zeroToOne);
-        require(amountOut >= amountOutMin, BadSlippage());
+        require(amountIn > 0, InvalidInputAmount());
+        (uint256 _reserve0, uint256 _reserve1) = zeroToOne 
+            ? (getReserve0(), getReserve1()) 
+            : (getReserve1(), getReserve0());
+
+        uint256 amountOut = getOutputAmount(amountIn, _reserve0, _reserve1);
+        require(amountOut >= amountOutMin, BadSlippage(amountOutMin, amountOut));
 
         (address _token0, address _token1) = zeroToOne 
             ? (token0, token1) 
