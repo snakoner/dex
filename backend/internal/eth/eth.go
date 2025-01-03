@@ -10,7 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/sirupsen/logrus"
 	"github.com/snakoner/dex/internal/bindings/factory"
-	"github.com/snakoner/dex/internal/bindings/liquidityprovider"
+	liquidityprovider "github.com/snakoner/dex/internal/bindings/liquidity-provider"
 	"github.com/snakoner/dex/internal/bindings/pool"
 	"github.com/snakoner/dex/internal/config"
 )
@@ -22,8 +22,8 @@ type Signer struct {
 type PoolObject struct {
 	lp struct {
 		address  common.Address
-		httpInst *liquidityprovider.Lp
-		wsInst   *liquidityprovider.Lp
+		httpInst *liquidityprovider.Liquidityprovider
+		wsInst   *liquidityprovider.Liquidityprovider
 	}
 	pool struct {
 		address  common.Address
@@ -102,7 +102,7 @@ func (e *EthereumServer) setupPools(config *config.Config) error {
 		if err != nil {
 			return err
 		}
-		liquidityProviderHttpInst, err := liquidityprovider.NewLp(liquidityProviderAddress, e.httpCli)
+		liquidityProviderHttpInst, err := liquidityprovider.NewLiquidityprovider(liquidityProviderAddress, e.httpCli)
 		if err != nil {
 			return err
 		}
@@ -113,7 +113,7 @@ func (e *EthereumServer) setupPools(config *config.Config) error {
 			return err
 		}
 
-		liquidityProviderWsInst, err := liquidityprovider.NewLp(liquidityProviderAddress, e.wsCli)
+		liquidityProviderWsInst, err := liquidityprovider.NewLiquidityprovider(liquidityProviderAddress, e.wsCli)
 		if err != nil {
 			return err
 		}
@@ -121,8 +121,8 @@ func (e *EthereumServer) setupPools(config *config.Config) error {
 		obj := &PoolObject{
 			lp: struct {
 				address  common.Address
-				httpInst *liquidityprovider.Lp
-				wsInst   *liquidityprovider.Lp
+				httpInst *liquidityprovider.Liquidityprovider
+				wsInst   *liquidityprovider.Liquidityprovider
 			}{
 				address:  liquidityProviderAddress,
 				httpInst: liquidityProviderHttpInst,

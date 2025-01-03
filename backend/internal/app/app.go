@@ -49,6 +49,10 @@ func New(config *config.Config, logger *logrus.Logger) (*App, error) {
 
 func (a *App) setRoutes() {
 	a.router.HandleFunc("/liquidity/{pair}", a.ethSrv.LiquidityHandler).Methods("GET")
+	a.router.HandleFunc("/output-amount/{pair}/{amount}/{in}/{out}", a.ethSrv.OutputAmountHandler).Methods("GET")
+	a.router.HandleFunc("/amount-to-add/{pair}/{amount}/{forward:[0-1]}", a.ethSrv.AmountToAddHandler).Methods("GET")
+	a.router.HandleFunc("/amount-from-lp/{pair}/{amount}", a.ethSrv.AmountFromLpHandler).Methods("GET")
+
 }
 
 func (a *App) Run(ctx context.Context) error {
