@@ -15,9 +15,10 @@
     "factory-address": "0x1",
     "pairs": [
         {
-            "name": "WETH-PEPE",
-            "token-a": "0x2",
-            "token-b": "0x3"
+            "name-a": "WETH",
+            "name-b": "PEPE",
+            "token-a": "0x32",
+            "token-b": "0x31"
         }
     ]
 }

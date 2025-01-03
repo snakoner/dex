@@ -3,15 +3,16 @@ package config
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 
 	"github.com/joho/godotenv"
 )
 
 type Pair struct {
-	Name   string `json:"name"`
-	TokenA string `json:"token-a"`
-	TokenB string `json:"token-b"`
+	Name   string
+	TokenA string
+	TokenB string
 }
 
 type Config struct {
@@ -32,8 +33,44 @@ type Config struct {
 		Evm      string
 		Provider string
 	}
-	FactoryAddress string  `json:"factory-address"`
-	Pairs          []*Pair `json:"pairs"`
+	FactoryAddress string `json:"factory-address"`
+	Pairs          []*Pair
+}
+
+type pairsJSON struct {
+	Pairs []struct {
+		NameA  string `json:"name-a"`
+		NameB  string `json:"name-b"`
+		TokenA string `json:"token-a"`
+		TokenB string `json:"token-b"`
+	} `json:"pairs"`
+}
+
+/*
+Purpose of this function to swap name of pair,
+if tokenA address is bigger than tokenB address
+for subsequent receipt of an address from factory
+*/
+func createPairs(pairs *pairsJSON, config *Config) {
+	for _, p := range pairs.Pairs {
+		var nameA, nameB string
+		var tokenA, tokenB string
+		if p.TokenB < p.TokenA {
+			nameA, nameB = p.NameB, p.NameA
+			tokenA, tokenB = p.TokenB, p.TokenA
+		} else {
+			nameA, nameB = p.NameA, p.NameB
+			tokenA, tokenB = p.TokenA, p.TokenB
+		}
+
+		newPair := &Pair{
+			Name:   fmt.Sprintf("%s-%s", nameA, nameB),
+			TokenA: tokenA,
+			TokenB: tokenB,
+		}
+
+		config.Pairs = append(config.Pairs, newPair)
+	}
 }
 
 func New(configPath string) (*Config, error) {
@@ -46,6 +83,13 @@ func New(configPath string) (*Config, error) {
 	if err := json.Unmarshal(b, config); err != nil {
 		return nil, err
 	}
+
+	pairsJSON := &pairsJSON{}
+	if err := json.Unmarshal(b, pairsJSON); err != nil {
+		return nil, err
+	}
+
+	createPairs(pairsJSON, config)
 
 	if err := setPrivate(config); err != nil {
 		return nil, err
