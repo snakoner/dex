@@ -15,21 +15,21 @@ func setHttpError(w http.ResponseWriter, err string, code int) {
 
 func (e *EthereumServer) LiquidityHandler(w http.ResponseWriter, r *http.Request) {
 	pair := mux.Vars(r)["pair"]
-	if _, ok := e.exhanges[pair]; !ok {
+	if _, ok := e.pools[pair]; !ok {
 		e.logger.Error(errUnknownPair)
 		setHttpError(w, errUnknownPair.Error(), http.StatusBadRequest)
 		return
 	}
 
-	exchange := e.exhanges[pair]
-	num0, err := exchange.pool.httpInst.GetReserve0(&bind.CallOpts{})
+	pool := e.pools[pair]
+	num0, err := pool.pool.httpInst.GetReserve0(&bind.CallOpts{})
 	if err != nil {
 		e.logger.Error(err)
 		setHttpError(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	num1, err := exchange.pool.httpInst.GetReserve1(&bind.CallOpts{})
+	num1, err := pool.pool.httpInst.GetReserve1(&bind.CallOpts{})
 	if err != nil {
 		e.logger.Error(err)
 		setHttpError(w, err.Error(), http.StatusInternalServerError)

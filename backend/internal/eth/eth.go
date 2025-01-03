@@ -19,7 +19,7 @@ type Signer struct {
 	privateKey *ecdsa.PrivateKey
 }
 
-type ExchangeObject struct {
+type PoolObject struct {
 	lp struct {
 		address  common.Address
 		httpInst *liquidityprovider.Lp
@@ -39,12 +39,12 @@ type Factory struct {
 }
 
 type EthereumServer struct {
-	exhanges map[string]ExchangeObject
-	httpCli  *ethclient.Client
-	wsCli    *ethclient.Client
-	factory  *Factory
-	logger   *logrus.Logger
-	signer   *Signer
+	pools   map[string]PoolObject
+	httpCli *ethclient.Client
+	wsCli   *ethclient.Client
+	factory *Factory
+	logger  *logrus.Logger
+	signer  *Signer
 }
 
 func (e *EthereumServer) setupFactory(config *config.Config) error {
@@ -81,7 +81,7 @@ func (e *EthereumServer) setupFactory(config *config.Config) error {
 	return nil
 }
 
-func (e *EthereumServer) setupExchanges(config *config.Config) error {
+func (e *EthereumServer) setupPools(config *config.Config) error {
 	for _, pair := range config.Pairs {
 		name := pair.Name
 		tokenA := common.HexToAddress(pair.TokenA)
@@ -118,7 +118,7 @@ func (e *EthereumServer) setupExchanges(config *config.Config) error {
 			return err
 		}
 
-		obj := &ExchangeObject{
+		obj := &PoolObject{
 			lp: struct {
 				address  common.Address
 				httpInst *liquidityprovider.Lp
@@ -139,7 +139,7 @@ func (e *EthereumServer) setupExchanges(config *config.Config) error {
 			},
 		}
 
-		e.exhanges[name] = *obj
+		e.pools[name] = *obj
 	}
 
 	return nil
@@ -175,8 +175,8 @@ func New(config *config.Config) (*EthereumServer, error) {
 		return nil, err
 	}
 
-	// setup exchanges
-	if err := e.setupExchanges(config); err != nil {
+	// setup pools
+	if err := e.setupPools(config); err != nil {
 		return nil, err
 	}
 
