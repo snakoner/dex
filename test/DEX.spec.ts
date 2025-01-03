@@ -17,13 +17,20 @@ const poolABI = [
 const erc20ABI = [
     "function balanceOf(address account) external view returns (uint256)",
     "function owner() public view returns (address)",
-    "function mint(address account, uint256 amount) external"
+    "function mint(address account, uint256 amount) external",
+    "function totalSupply() public view returns (uint256)"
 ];
+
+const lpTokenName = "DexSwap ATK/BTK LP Token";
+const lpTokenSymbol = "DS-ATK-BTK-LP";
+const fee = 2;      // 0.2, max = 10e3
+const mint0Amount = 1000000000;
+const mint1Amount = 20000000;
 
 describe("DEX test", function() {
     async function deploy() {
         const owner = (await ethers.getSigners())[0];
-        const parts = (await ethers.getSigners()).slice(1, 10);
+        const account = (await ethers.getSigners())[1];
         
         // aToken
         const atokenFactory = await ethers.getContractFactory("AToken");
@@ -40,140 +47,263 @@ describe("DEX test", function() {
         const factory = await factoryFactory.deploy();
         await factory.waitForDeployment();
 
-        return {factory, aToken, bToken, owner, parts};
-    }
-
-    it ("should be create pool", async function() {
-        const {factory, aToken, bToken, owner, parts} = await loadFixture(deploy);        
-        const fee = 2;
-
-        // 0. deploy pool
         await factory.createPool(
             await aToken.getAddress(),
             await bToken.getAddress(),
-            "DexSwap ATK/BTK LP Token",
-            "DS-ATK-BTK-LP",
+            lpTokenName,
+            lpTokenSymbol,
             fee
         );
-        const poolAddress = await factory.getPool(await aToken.getAddress(),
-                                await bToken.getAddress());
-        const poolContract = new ethers.Contract(poolAddress, poolABI, owner);
-        const lpTokenAddress = await poolContract.lpToken();
 
+        const poolAddress = await factory.getPool(await aToken.getAddress(), await bToken.getAddress());
+        const pool = new ethers.Contract(poolAddress, poolABI, owner);
+
+        const lpTokenAddress = await pool.lpToken();
         const lpToken = new ethers.Contract(lpTokenAddress, erc20ABI, ethers.provider);
 
-        // make sure that owner of lp token is factory and nobody cant mint and burn tokens
-        expect(await lpToken.owner()).to.be.eq(poolAddress);
+        // for future use mint
+        await aToken.mint(owner.address, mint0Amount);
+        await bToken.mint(owner.address, mint1Amount);
+
+        // for future use approve all
+        await aToken.approve(await pool.getAddress(), mint0Amount);
+        await bToken.approve(await pool.getAddress(), mint1Amount);
+
+        return {factory, aToken, bToken, pool, lpToken, owner, account};
+    }
+
+    it ("Should not allow to mint/burn lp tokens by any except pool", async function() {
+        const {lpToken, owner} = await loadFixture(deploy);        
+
         try {
             lpToken.mint(owner.address, 10000);
             expect(false).to.be.eq(true);
         } catch (error) {}
+    });
 
+    it ("Should be non null address contracts and A,B tokens shooud be minted", async function() {
+        const {factory, aToken, bToken, pool, lpToken, owner} = await loadFixture(deploy);        
 
-        expect(poolAddress).to.be.not.eq(ethers.ZeroAddress);
+        expect(await factory.getAddress()).not.to.be.eq(ethers.ZeroAddress);
+        expect(await aToken.getAddress()).not.to.be.eq(ethers.ZeroAddress);
+        expect(await bToken.getAddress()).not.to.be.eq(ethers.ZeroAddress);
+        expect(await pool.getAddress()).not.to.be.eq(ethers.ZeroAddress);
+        expect(await lpToken.getAddress()).not.to.be.eq(ethers.ZeroAddress);
 
-        console.log(await lpToken.balanceOf(owner.address));
+        expect(await aToken.totalSupply()).to.be.eq(mint0Amount);
+        expect(await bToken.totalSupply()).to.be.eq(mint1Amount);
 
-        console.log("aToken address = ", await aToken.getAddress());
-        console.log("bToken address = ", await bToken.getAddress());
-        console.log("owner address = ", await owner.getAddress());
-        console.log("pool address = ", await poolContract.getAddress());
+        expect(await aToken.balanceOf(owner.address)).to.be.eq(mint0Amount);
+        expect(await bToken.balanceOf(owner.address)).to.be.eq(mint1Amount);
+    });
 
-        // 1. add some liquidity
+    it ("Should not allow to mint/burn lp tokens by any except pool", async function() {
+        const {lpToken, owner} = await loadFixture(deploy);        
+
+        try {
+            lpToken.mint(owner.address, 10000);
+            expect(false).to.be.eq(true);
+        } catch (error) {
+
+        }
+    });
+
+    it ("Should be possible to add liquidity in any proportions", async function() {
+        const {pool} = await loadFixture(deploy);        
+
         const addLiquidityData = {
-            mint0Value: 1000000000,
-            mint1Value: 20000000,
             amount0In: 10000000,
-            amount1In: 10000000,
+            amount1In: 1000000,
         };
 
-        await aToken.mint(owner.address, addLiquidityData.mint0Value);
-        await bToken.mint(owner.address, addLiquidityData.mint1Value);
+        await pool.addLiquidity(addLiquidityData.amount0In, addLiquidityData.amount1In);
 
-        expect(await aToken.totalSupply()).to.be.eq(addLiquidityData.mint0Value);
-        expect(await bToken.totalSupply()).to.be.eq(addLiquidityData.mint1Value);
+        expect(await pool.getReserve0()).to.be.eq(addLiquidityData.amount0In);
+        expect(await pool.getReserve1()).to.be.eq(addLiquidityData.amount1In);
+    });
 
-        expect(await aToken.balanceOf(owner.address)).to.be.eq(addLiquidityData.mint0Value);
-        expect(await bToken.balanceOf(owner.address)).to.be.eq(addLiquidityData.mint1Value);
+    it ("Should create lp tokens with same amount as tokenA", async function() {
+        const {pool, lpToken, owner} = await loadFixture(deploy);        
 
-        // for future use approve all
-        await aToken.approve(await poolContract.getAddress(), addLiquidityData.mint0Value);
-        await bToken.approve(await poolContract.getAddress(), addLiquidityData.mint1Value);
+        expect(await lpToken.balanceOf(owner.address)).to.be.eq(0);
 
-        // add
-        await poolContract.addLiquidity(addLiquidityData.amount0In, addLiquidityData.amount1In);
+        const addLiquidityData = {
+            amount0In: 10000000,
+            amount1In: 1000000,
+        };
 
-        console.log('lpToken: ', await lpToken.balanceOf(owner.address));
+        await pool.addLiquidity(addLiquidityData.amount0In, addLiquidityData.amount1In);
+
+        expect(await lpToken.totalSupply()).to.be.eq(addLiquidityData.amount0In);
+    });
+
+
+    it ("Should be not possible to add liquidity in any proportions if pool not empty", async function() {
+        const {pool} = await loadFixture(deploy);        
 
         // 1+. add some more liquidity
-        const addLiquidity2Data = {
+        const addLiquidityData = {
             amount0In: 1000,
-            amount1In: 0, // calculate later
+            amount1In: 1000, // calculate later
         };
 
-        addLiquidity2Data.amount1In = await poolContract.getAmountToAdd(addLiquidity2Data.amount0In, true);
+        try {
+            await pool.addLiquidity(addLiquidityData.amount0In, addLiquidityData.amount1In);
+            expect(false).to.be.eq(true);
+        } catch (error) {
 
-        console.log(addLiquidity2Data);
+        }
+    });
 
-        await poolContract.addLiquidity(addLiquidity2Data.amount0In, addLiquidity2Data.amount1In);
+    it ("Should be possible to add liquidity in right proportions if pool not empty", async function() {
+        const {pool} = await loadFixture(deploy);        
 
-        console.log('lpToken: ', await lpToken.balanceOf(owner.address));
+        const addLiquidity1Data = {
+            amount0In: 10000000,
+            amount1In: 1000000,
+        };
+
+        const addLiquidity2Data = {
+            amount0In: 10000,
+            amount1In: 0, // calc later
+        };
+
+        await pool.addLiquidity(addLiquidity1Data.amount0In, addLiquidity1Data.amount1In);
+
+        addLiquidity2Data.amount1In = await pool.getAmountToAdd(addLiquidity2Data.amount0In, true);
+        await pool.addLiquidity(addLiquidity2Data.amount0In, addLiquidity2Data.amount1In);
+
+        expect(await pool.getReserve0()).to.be.eq(
+            ethers.toBigInt(addLiquidity1Data.amount0In) + 
+            ethers.toBigInt(addLiquidity2Data.amount0In));
+        expect(await pool.getReserve1()).to.be.eq(
+            ethers.toBigInt(addLiquidity1Data.amount1In) + 
+            ethers.toBigInt(addLiquidity2Data.amount1In));
+    });
+
+    it ("Should swap small amount with small slippage", async function() {
+        const {pool} = await loadFixture(deploy);        
 
         // 1. swap A -> B
-        // add some tokens to owner
         const swapData = {
-            amountIn: 1000,
+            amountIn: 10000,    // 10k
             amountOutMin: 0,    // calc later
-            slippage: 10,
+            slippage: 10,       // 1%
         };
 
-        await aToken.mint(owner.address, swapData.amountIn);
+        const addLiquidity1Data = {
+            amount0In: 10000000,    // 10kk is 1000 bigger than swapData.amountIn
+            amount1In: 1000000,
+        };
 
-        expect(await poolContract.getReserve0()).to.be.eq(ethers.toBigInt(addLiquidityData.amount0In + addLiquidity2Data.amount0In));
-        expect(await poolContract.getReserve1()).to.be.eq(ethers.toBigInt(addLiquidityData.amount1In) + ethers.toBigInt(addLiquidity2Data.amount1In));
+        await pool.addLiquidity(
+            addLiquidity1Data.amount0In, 
+            addLiquidity1Data.amount1In
+        );
 
-        const price = Number(await poolContract.getReserve0()) / Number(await poolContract.getReserve1());
-        const minOut = Math.floor((swapData.amountIn / price * (1 - (swapData.slippage + fee) / 1000.)));
-        swapData.amountOutMin = minOut;
+        const price = Number(await pool.getReserve0()) / Number(await pool.getReserve1());
+        swapData.amountOutMin = Math.floor((swapData.amountIn / price * (1 - (swapData.slippage + fee) / 1000.)));
 
-        console.log(price);
-        console.log("minOut = ", minOut);
-        console.log("A/B price: ", (await poolContract.getReserve0()) / (await poolContract.getReserve1()));
-        console.log("B/A price: ", Number(await poolContract.getReserve1()) / Number(await poolContract.getReserve0()));
-
-        const inReserve = await poolContract.getReserve0();
-        const outReserve = await poolContract.getReserve1();
-        let swappedBAmount = await poolContract.getOutputAmount(swapData.amountIn, inReserve, outReserve);
-        console.log("will receive about A->B: ", swappedBAmount);
-
-        await aToken.approve(poolAddress, swapData.amountIn);
-
-
-        // 2. swap
-        await poolContract.swap(
+        await pool.swap(
             ethers.toBigInt(swapData.amountIn), 
             ethers.toBigInt(swapData.amountOutMin), 
             true
         );
+    });
+    
 
-        console.log("owner balance A: ", await aToken.balanceOf(owner.address));
-        console.log("owner balance B: ", await bToken.balanceOf(owner.address));
+    it ("Should not swap large amount with small slippage", async function() {
+        const {pool} = await loadFixture(deploy);        
 
-        console.log("reserve A: ", await poolContract.getReserve0());
-        console.log("reserve B: ", await poolContract.getReserve1());
+        // 1. swap A -> B
+        const swapData = {
+            amountIn: 1000000,    // 1kk
+            amountOutMin: 0,    // calc later
+            slippage: 10,       // 1%
+        };
 
+        const addLiquidity1Data = {
+            amount0In: 10000000,    // 10kk is only 10 times bigger than swapData.amountIn
+            amount1In: 1000000,
+        };
 
-        const lpTokensAmount = await lpToken.balanceOf(owner.address);
-        console.log(await poolContract.getAmountsFromLp(lpTokensAmount));
+        await pool.addLiquidity(
+            addLiquidity1Data.amount0In, 
+            addLiquidity1Data.amount1In
+        );
 
-        // remove full liq
-        console.log("!!!! remove liquidity");
+        const price = Number(await pool.getReserve0()) / Number(await pool.getReserve1());
+        swapData.amountOutMin = Math.floor((swapData.amountIn / price * (1 - (swapData.slippage + fee) / 1000.)));
 
-        console.log("lpTokensAmount = ", lpTokensAmount);
-        await poolContract.removeLiquidity(lpTokensAmount - ethers.toBigInt(100000));
+        try {
+            await pool.swap(
+                ethers.toBigInt(swapData.amountIn), 
+                ethers.toBigInt(swapData.amountOutMin), 
+                true
+            );
+            expect(false).to.be.eq(true);
+        } catch (error) {}
+    });
+    
+    it ("Should swap large amount with large slippage", async function() {
+        const {pool} = await loadFixture(deploy);        
 
+        // 1. swap A -> B
+        const swapData = {
+            amountIn: 1000000,    // 1kk
+            amountOutMin: 0,    // calc later
+            slippage: 120,       // 12%
+        };
 
-        console.log("reserve A: ", await poolContract.getReserve0());
-        console.log("reserve B: ", await poolContract.getReserve1());
+        const addLiquidity1Data = {
+            amount0In: 10000000,    // 10kk is 10 bigger than swapData.amountIn
+            amount1In: 1000000,
+        };
+
+        await pool.addLiquidity(
+            addLiquidity1Data.amount0In, 
+            addLiquidity1Data.amount1In
+        );
+
+        const price = Number(await pool.getReserve0()) / Number(await pool.getReserve1());
+        swapData.amountOutMin = Math.floor((swapData.amountIn / price * (1 - (swapData.slippage + fee) / 1000.)));
+
+        await pool.swap(
+            ethers.toBigInt(swapData.amountIn), 
+            ethers.toBigInt(swapData.amountOutMin), 
+            true
+        );
+    });
+
+    it ("Should be possible to remove liquidity", async function() {
+        const {aToken, bToken, pool, lpToken, owner} = await loadFixture(deploy);
+
+        const addLiquidityData = {
+            amount0In: 10000000, 
+            amount1In: 1000000,
+        };
+
+        await pool.addLiquidity(
+            addLiquidityData.amount0In, 
+            addLiquidityData.amount1In
+        );
+
+        const ownerATokenBalanceBefore = await aToken.balanceOf(owner.address);
+        const ownerBTokenBalanceBefore = await bToken.balanceOf(owner.address);
+
+        await pool.removeLiquidity(await lpToken.balanceOf(owner.address));
+
+        // make sure that there is not liquidity in pool
+        expect(await lpToken.balanceOf(owner.address)).to.be.eq(0);
+        expect(await lpToken.totalSupply()).to.be.eq(0);
+        expect(await pool.getReserve0()).to.be.eq(0);
+        expect(await pool.getReserve1()).to.be.eq(0);
+
+        const ownerATokenBalanceAfter = await aToken.balanceOf(owner.address);
+        const ownerBTokenBalanceAfter = await bToken.balanceOf(owner.address);
+
+        expect(ownerATokenBalanceAfter - ownerATokenBalanceBefore).to.be.eq(addLiquidityData.amount0In);
+        expect(ownerBTokenBalanceAfter - ownerBTokenBalanceBefore).to.be.eq(addLiquidityData.amount1In);
+
     });
 })
