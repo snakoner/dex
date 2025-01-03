@@ -2,8 +2,11 @@ package eth
 
 import (
 	"crypto/ecdsa"
+	"fmt"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/sirupsen/logrus"
 	"github.com/snakoner/dex/internal/bindings/factory"
@@ -19,53 +22,173 @@ type Signer struct {
 type ExchangeObject struct {
 	lp struct {
 		address  common.Address
-		httpCli  *ethclient.Client
 		httpInst *liquidityprovider.Lp
-		wsCli    *ethclient.Client
 		wsInst   *liquidityprovider.Lp
 	}
 	pool struct {
 		address  common.Address
-		httpCli  *ethclient.Client
 		httpInst *pool.Pool
-		wsCli    *ethclient.Client
 		wsInst   *pool.Pool
 	}
 }
 
 type Factory struct {
 	address  common.Address
-	httpCli  *ethclient.Client
 	httpInst *factory.Factory
-	wsCli    *ethclient.Client
 	wsInst   *factory.Factory
 }
 
 type EthereumServer struct {
 	exhanges map[string]ExchangeObject
+	httpCli  *ethclient.Client
+	wsCli    *ethclient.Client
 	factory  *Factory
 	logger   *logrus.Logger
 	signer   *Signer
 }
 
-func New(config *config.Config) (*EthereumServer, error) {
-	return nil, nil
+func (e *EthereumServer) setupFactory(config *config.Config) error {
+	address := common.HexToAddress(config.FactoryAddress)
+
+	// http
+	httpCli, err := ethclient.Dial(fmt.Sprintf("%s%s", config.Infura.HttpProvider, config.Private.Provider))
+	if err != nil {
+		return err
+	}
+
+	httpInst, err := factory.NewFactory(address, httpCli)
+	if err != nil {
+		return err
+	}
+
+	// ws
+	wssCli, err := ethclient.Dial(fmt.Sprintf("%s%s", config.Infura.WssProvider, config.Private.Provider))
+	if err != nil {
+		return err
+	}
+
+	wssInst, err := factory.NewFactory(address, wssCli)
+	if err != nil {
+		return err
+	}
+
+	e.factory = &Factory{
+		address:  address,
+		httpInst: httpInst,
+		wsInst:   wssInst,
+	}
+
+	return nil
 }
 
-func (e *EthereumServer) Stop(name string) {
-	exchange, ok := e.exhanges[name]
-	if ok {
-		clients := []*ethclient.Client{
-			exchange.lp.httpCli,
-			exchange.lp.wsCli,
-			exchange.pool.httpCli,
-			exchange.pool.wsCli,
+func (e *EthereumServer) setupExchanges(config *config.Config) error {
+	for _, pair := range config.Pairs {
+		name := pair.Name
+		tokenA := common.HexToAddress(pair.TokenA)
+		tokenB := common.HexToAddress(pair.TokenB)
+
+		poolAddress, err := e.factory.httpInst.GetPool(&bind.CallOpts{}, tokenA, tokenB)
+		if err != nil {
+			return err
 		}
 
-		for _, cli := range clients {
-			if cli != nil {
-				cli.Close()
-			}
+		// http
+		poolHttpInst, err := pool.NewPool(poolAddress, e.httpCli)
+		if err != nil {
+			return err
 		}
+
+		liquidityProviderAddress, err := poolHttpInst.LpToken(&bind.CallOpts{})
+		if err != nil {
+			return err
+		}
+		liquidityProviderHttpInst, err := liquidityprovider.NewLp(liquidityProviderAddress, e.httpCli)
+		if err != nil {
+			return err
+		}
+
+		// ws
+		poolWsInst, err := pool.NewPool(poolAddress, e.wsCli)
+		if err != nil {
+			return err
+		}
+
+		liquidityProviderWsInst, err := liquidityprovider.NewLp(liquidityProviderAddress, e.wsCli)
+		if err != nil {
+			return err
+		}
+
+		obj := &ExchangeObject{
+			lp: struct {
+				address  common.Address
+				httpInst *liquidityprovider.Lp
+				wsInst   *liquidityprovider.Lp
+			}{
+				address:  liquidityProviderAddress,
+				httpInst: liquidityProviderHttpInst,
+				wsInst:   liquidityProviderWsInst,
+			},
+			pool: struct {
+				address  common.Address
+				httpInst *pool.Pool
+				wsInst   *pool.Pool
+			}{
+				address:  poolAddress,
+				httpInst: poolHttpInst,
+				wsInst:   poolWsInst,
+			},
+		}
+
+		e.exhanges[name] = *obj
+	}
+
+	return nil
+}
+
+func New(config *config.Config) (*EthereumServer, error) {
+	privateKey, err := crypto.HexToECDSA(config.Private.Evm)
+	if err != nil {
+		return nil, err
+	}
+
+	httpCli, err := ethclient.Dial(fmt.Sprintf("%s%s", config.Infura.HttpProvider, config.Private.Provider))
+	if err != nil {
+		return nil, err
+	}
+
+	wsCli, err := ethclient.Dial(fmt.Sprintf("%s%s", config.Infura.WssProvider, config.Private.Provider))
+	if err != nil {
+		return nil, err
+	}
+
+	e := &EthereumServer{
+		logger: logrus.New(),
+		signer: &Signer{
+			privateKey: privateKey,
+		},
+		httpCli: httpCli,
+		wsCli:   wsCli,
+	}
+
+	// setup factory
+	if err := e.setupFactory(config); err != nil {
+		return nil, err
+	}
+
+	// setup exchanges
+	if err := e.setupExchanges(config); err != nil {
+		return nil, err
+	}
+
+	return e, nil
+}
+
+func (e *EthereumServer) Stop() {
+	if e.httpCli != nil {
+		e.httpCli.Close()
+	}
+
+	if e.wsCli != nil {
+		e.wsCli.Close()
 	}
 }

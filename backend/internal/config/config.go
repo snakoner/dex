@@ -32,7 +32,8 @@ type Config struct {
 		Evm      string
 		Provider string
 	}
-	Pairs []*Pairs `json:"pairs"`
+	FactoryAddress string   `json:"factory-address"`
+	Pairs          []*Pairs `json:"pairs"`
 }
 
 func New(configPath string) (*Config, error) {

@@ -73,7 +73,7 @@ func (a *App) Run(ctx context.Context) error {
 
 	<-ctx.Done()
 	ctxShutdown, cancel := context.WithTimeout(context.Background(), time.Second*3)
-	a.ethSrv.Stop("")
+	a.ethSrv.Stop()
 	defer cancel()
 
 	if err := a.server.Shutdown(ctxShutdown); err != nil {
