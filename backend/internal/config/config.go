@@ -8,7 +8,7 @@ import (
 	"github.com/joho/godotenv"
 )
 
-type Pairs struct {
+type Pair struct {
 	Name   string `json:"name"`
 	TokenA string `json:"token-a"`
 	TokenB string `json:"token-b"`
@@ -32,8 +32,8 @@ type Config struct {
 		Evm      string
 		Provider string
 	}
-	FactoryAddress string   `json:"factory-address"`
-	Pairs          []*Pairs `json:"pairs"`
+	FactoryAddress string  `json:"factory-address"`
+	Pairs          []*Pair `json:"pairs"`
 }
 
 func New(configPath string) (*Config, error) {
