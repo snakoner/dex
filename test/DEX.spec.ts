@@ -51,8 +51,8 @@ describe("DEX test", function() {
         await factory.createPool(
             await aToken.getAddress(),
             await bToken.getAddress(),
-            "AToken-BToken-LP",
-            "LP-ATKBTK",
+            "DexSwap ATK/BTK LP Token",
+            "DS-ATK-BTK-LP",
             fee
         );
         const poolAddress = await factory.getPool(await aToken.getAddress(),
