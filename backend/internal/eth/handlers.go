@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/gorilla/mux"
 	"github.com/snakoner/dex/internal/models"
 )
@@ -15,7 +16,10 @@ func setHttpError(w http.ResponseWriter, err string, code int) {
 	http.Error(w, err, code)
 }
 
-func (e *EthereumServer) LiquidityHandler(w http.ResponseWriter, r *http.Request) {
+/*
+DexPool
+*/
+func (e *EthereumServer) LiquidityHandle(w http.ResponseWriter, r *http.Request) {
 	pair := mux.Vars(r)["pair"]
 	if _, ok := e.pools[pair]; !ok {
 		e.logger.Error(errUnknownPair)
@@ -38,9 +42,9 @@ func (e *EthereumServer) LiquidityHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	response := &models.LiquidityResponse{
-		NumberA: num0.Int64(),
-		NumberB: num1.Int64(),
+	response := &models.PairInt64Response{
+		Value0: num0.Int64(),
+		Value1: num1.Int64(),
 	}
 
 	b, err := json.Marshal(response)
@@ -55,7 +59,7 @@ func (e *EthereumServer) LiquidityHandler(w http.ResponseWriter, r *http.Request
 }
 
 // may be too heavy. Better calculate on front
-func (e *EthereumServer) OutputAmountHandler(w http.ResponseWriter, r *http.Request) {
+func (e *EthereumServer) OutputAmountHandle(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	pair := vars["pair"]
 	amount, err := strconv.ParseInt(vars["amount"], 10, 64)
@@ -93,8 +97,8 @@ func (e *EthereumServer) OutputAmountHandler(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	response := &models.OutputAmountResponse{
-		Amount: outputAmount.Int64(),
+	response := &models.SingleInt64Response{
+		Value: outputAmount.Int64(),
 	}
 
 	b, err := json.Marshal(response)
@@ -108,7 +112,7 @@ func (e *EthereumServer) OutputAmountHandler(w http.ResponseWriter, r *http.Requ
 	w.Write(b)
 }
 
-func (e *EthereumServer) AmountToAddHandler(w http.ResponseWriter, r *http.Request) {
+func (e *EthereumServer) AmountToAddHandle(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	pair := vars["pair"]
 
@@ -140,8 +144,8 @@ func (e *EthereumServer) AmountToAddHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	response := &models.OutputAmountResponse{
-		Amount: outputAmount.Int64(),
+	response := &models.SingleInt64Response{
+		Value: outputAmount.Int64(),
 	}
 
 	b, err := json.Marshal(response)
@@ -155,7 +159,7 @@ func (e *EthereumServer) AmountToAddHandler(w http.ResponseWriter, r *http.Reque
 	w.Write(b)
 }
 
-func (e *EthereumServer) AmountFromLpHandler(w http.ResponseWriter, r *http.Request) {
+func (e *EthereumServer) AmountFromLpHandle(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	pair := vars["pair"]
 
@@ -180,9 +184,82 @@ func (e *EthereumServer) AmountFromLpHandler(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	response := &models.AmountFromLpResponse{
-		NumberA: token0Amount.Int64(),
-		NumberB: token1Amount.Int64(),
+	response := &models.PairInt64Response{
+		Value0: token0Amount.Int64(),
+		Value1: token1Amount.Int64(),
+	}
+
+	b, err := json.Marshal(response)
+	if err != nil {
+		e.logger.Error(err)
+		setHttpError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write(b)
+}
+
+func (e *EthereumServer) FeeHandle(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	pair := vars["pair"]
+
+	if _, ok := e.pools[pair]; !ok {
+		e.logger.Error(errUnknownPair)
+		setHttpError(w, errUnknownPair.Error(), http.StatusBadRequest)
+		return
+	}
+
+	pool := e.pools[pair]
+	fee, err := pool.pool.httpInst.Fee(&bind.CallOpts{})
+	if err != nil {
+		e.logger.Error(err)
+		setHttpError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	response := &models.SingleInt64Response{
+		Value: fee.Int64(),
+	}
+
+	b, err := json.Marshal(response)
+	if err != nil {
+		e.logger.Error(err)
+		setHttpError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write(b)
+}
+
+/*
+LiquidityProviderERC20
+*/
+func (e *EthereumServer) LpAccountBalanceHandle(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	pair := vars["pair"]
+	account := vars["account"]
+	if _, ok := e.pools[pair]; !ok {
+		e.logger.Error(errUnknownPair)
+		setHttpError(w, errUnknownPair.Error(), http.StatusBadRequest)
+		return
+	}
+
+	pool := e.pools[pair]
+	balance, err := pool.lp.httpInst.BalanceOf(
+		&bind.CallOpts{},
+		common.HexToAddress(account),
+	)
+
+	if err != nil {
+		e.logger.Error(err)
+		setHttpError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	response := &models.SingleInt64Response{
+		Value: balance.Int64(),
 	}
 
 	b, err := json.Marshal(response)
