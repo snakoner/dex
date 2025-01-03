@@ -1,0 +1,24 @@
+{
+    "name": "Ethereum Lottery Dapp smart contract backend",
+    "log": {
+        "level": "debug",
+        "output": "none"
+    },
+    "service" : {
+        "host": "0.0.0.0",
+        "port": "8000"
+    },
+    "infura": {
+        "http-provider": "https://eth-sepolia.g.alchemy.com/v2/",
+        "wss-provider": "wss://eth-sepolia.g.alchemy.com/v2/"
+    },
+    "factory": "0x1",
+    "pairs": [
+        {
+            "name": "WETH-PEPE",
+            "token-a": "0x2",
+            "token-b": "0x3"
+        }
+    ]
+}
+

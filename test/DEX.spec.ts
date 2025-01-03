@@ -11,10 +11,13 @@ const poolABI = [
     "function removeLiquidity(uint256 amount) external",
     "function getOutputAmount(uint256 amount, uint256 inReserve, uint256 outReserve) public view returns (uint256)",
     "function lpToken() public view returns (address)",
+    
 ];
 
 const erc20ABI = [
     "function balanceOf(address account) external view returns (uint256)",
+    "function owner() public view returns (address)",
+    "function mint(address account, uint256 amount) external"
 ];
 
 describe("DEX test", function() {
@@ -58,6 +61,14 @@ describe("DEX test", function() {
         const lpTokenAddress = await poolContract.lpToken();
 
         const lpToken = new ethers.Contract(lpTokenAddress, erc20ABI, ethers.provider);
+
+        // make sure that owner of lp token is factory and nobody cant mint and burn tokens
+        expect(await lpToken.owner()).to.be.eq(poolAddress);
+        try {
+            lpToken.mint(owner.address, 10000);
+            expect(false).to.be.eq(true);
+        } catch (error) {}
+
 
         expect(poolAddress).to.be.not.eq(ethers.ZeroAddress);
 
