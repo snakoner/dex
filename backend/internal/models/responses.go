@@ -24,3 +24,16 @@ type PairInt64Response struct {
 	Value0 int64 `json:"value0"`
 	Value1 int64 `json:"value1"`
 }
+
+type PoolInfo struct {
+	NameA  string `json:"nameA"`
+	NameB  string `json:"nameB"`
+	TokenA string `json:"tokenA"`
+	TokenB string `json:"tokenB"`
+	Pool   string `json:"pool"`
+}
+
+type PoolsResponse struct {
+	FactoryAddress string     `json:"factoryAddress"`
+	Pairs          []PoolInfo `json:"pairs"`
+}

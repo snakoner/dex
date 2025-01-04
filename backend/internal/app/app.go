@@ -48,6 +48,8 @@ func New(config *config.Config, logger *logrus.Logger) (*App, error) {
 }
 
 func (a *App) setRoutes() {
+	// app
+	a.router.HandleFunc("/get-pools", a.GetPoolsHandle).Methods("GET")
 	// pool
 	a.router.HandleFunc("/liquidity/{pair}", a.ethSrv.LiquidityHandle).Methods("GET")
 	a.router.HandleFunc("/output-amount/{pair}/{amount}/{in}/{out}", a.ethSrv.OutputAmountHandle).Methods("GET")
