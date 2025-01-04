@@ -21,5 +21,4 @@ backend/app
 build/
 frontend/README.md
 test/.DS_Store
-backend/app
 ignition/deployments/

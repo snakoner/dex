@@ -2,4 +2,4 @@
 .default: build
 
 build:
-	go build -o app ./cmd/app/*
+	rm -f ./app && go build -o app ./cmd/app/*
