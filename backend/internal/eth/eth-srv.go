@@ -88,6 +88,7 @@ func (e *EthereumServer) setupPools(config *config.Config) error {
 		tokenB := common.HexToAddress(pair.TokenB)
 
 		poolAddress, err := e.factory.httpInst.GetPool(&bind.CallOpts{}, tokenA, tokenB)
+
 		if err != nil {
 			return err
 		}
@@ -168,6 +169,7 @@ func New(config *config.Config) (*EthereumServer, error) {
 		},
 		httpCli: httpCli,
 		wsCli:   wsCli,
+		pools:   make(map[string]PoolObject),
 	}
 
 	// setup factory

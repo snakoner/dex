@@ -33,16 +33,17 @@ type Config struct {
 		Evm      string
 		Provider string
 	}
-	FactoryAddress string `json:"factory-address"`
-	Pairs          []*Pair
+	FactoryAddress string
+	Pairs          []Pair
 }
 
 type pairsJSON struct {
-	Pairs []struct {
-		NameA  string `json:"name-a"`
-		NameB  string `json:"name-b"`
-		TokenA string `json:"token-a"`
-		TokenB string `json:"token-b"`
+	FactoryAddress string `json:"factoryAddress"`
+	Pairs          []struct {
+		NameA  string `json:"nameA"`
+		NameB  string `json:"nameB"`
+		TokenA string `json:"tokenA"`
+		TokenB string `json:"tokenB"`
 	} `json:"pairs"`
 }
 
@@ -51,8 +52,20 @@ Purpose of this function to swap name of pair,
 if tokenA address is bigger than tokenB address
 for subsequent receipt of an address from factory
 */
-func createPairs(pairs *pairsJSON, config *Config) {
-	for _, p := range pairs.Pairs {
+func readPairs(configPath string, config *Config) error {
+	b, err := os.ReadFile(configPath)
+	if err != nil {
+		return err
+	}
+
+	pairsJSON := &pairsJSON{}
+	if err := json.Unmarshal(b, pairsJSON); err != nil {
+		return err
+	}
+
+	config.Pairs = config.Pairs[:0]
+
+	for _, p := range pairsJSON.Pairs {
 		var nameA, nameB string
 		var tokenA, tokenB string
 		if p.TokenB < p.TokenA {
@@ -69,11 +82,15 @@ func createPairs(pairs *pairsJSON, config *Config) {
 			TokenB: tokenB,
 		}
 
-		config.Pairs = append(config.Pairs, newPair)
+		config.Pairs = append(config.Pairs, *newPair)
 	}
+
+	config.FactoryAddress = pairsJSON.FactoryAddress
+
+	return nil
 }
 
-func New(configPath string) (*Config, error) {
+func New(configPath string, poolsPath string) (*Config, error) {
 	b, err := os.ReadFile(configPath)
 	if err != nil {
 		return nil, err
@@ -84,12 +101,9 @@ func New(configPath string) (*Config, error) {
 		return nil, err
 	}
 
-	pairsJSON := &pairsJSON{}
-	if err := json.Unmarshal(b, pairsJSON); err != nil {
+	if err := readPairs(poolsPath, config); err != nil {
 		return nil, err
 	}
-
-	createPairs(pairsJSON, config)
 
 	if err := setPrivate(config); err != nil {
 		return nil, err

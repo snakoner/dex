@@ -1,0 +1,11 @@
+{
+    "factoryAddress": "0x71eb94cbb5cBe84e68EBE0c0f2B097C6ce60910D",
+    "pairs": [
+        {
+            "nameA": "PEPE",
+            "nameB": "GRT",
+            "tokenA": "0x4104993a0a0F0F81eC76077E8CAaC5137b2556e6",
+            "tokenB": "0xc40D76aD1130fD9ec53a58E54F12aA6e088c1527"
+        }
+    ]
+}

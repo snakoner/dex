@@ -13,17 +13,19 @@ import (
 
 var (
 	configPath string
+	poolsPath  string
 )
 
 func init() {
 	flag.StringVar(&configPath, "config-path", "config.json", "path to config file")
+	flag.StringVar(&poolsPath, "pools-path", "../config/pools.json", "path to pools configs file")
 }
 
 func main() {
 	flag.Parse()
 
 	logger := logrus.New()
-	config, err := config.New(configPath)
+	config, err := config.New(configPath, poolsPath)
 	if err != nil {
 		logger.Error(err)
 	}

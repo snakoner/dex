@@ -23,7 +23,7 @@ generate_go_bindings:
 
 deploy:
 	rm -rf ./ignition/deployments
-	npx hardhat ignition deploy ./ignition/modules/Lottery.ts --show-stack-traces --network sepolia
+	npx hardhat ignition deploy ./ignition/modules/DEXFactory.ts --show-stack-traces --network sepolia
 
 up:
 	docker-compose up
