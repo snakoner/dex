@@ -1,10 +1,8 @@
 const { ethers } = require("ethers");
-import { readPools, Pools } from "./read-pools";
 require('dotenv').config();
 
 const ALCHEMY_RPC_URL = process.env.RPC_URL;
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
-const pools: Pools = readPools("./config/pools.json");
 const tokenABI = [
     "function mint(address _account, uint256 _amount) external",
 ];
