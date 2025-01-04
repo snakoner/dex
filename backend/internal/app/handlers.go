@@ -15,6 +15,12 @@ func (a *App) GetPoolsHandle(w http.ResponseWriter, r *http.Request) {
 
 	for _, p := range a.config.Pairs {
 		tokenNames := strings.Split(p.Name, "-")
+		if len(tokenNames) != 2 {
+			a.logger.Error(errCantParsePairName)
+			http.Error(w, errCantParsePairName.Error(), http.StatusInternalServerError)
+			return
+		}
+
 		pool := &models.PoolInfo{
 			NameA:  tokenNames[0],
 			NameB:  tokenNames[1],
