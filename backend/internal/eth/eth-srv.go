@@ -47,6 +47,24 @@ type EthereumServer struct {
 	signer  *Signer
 }
 
+func (e *EthereumServer) GetLP(pair string) (string, error) {
+	pool, ok := e.pools[pair]
+	if !ok {
+		return "", errUnknownPair
+	}
+
+	return pool.lp.address.Hex(), nil
+}
+
+func (e *EthereumServer) GetPool(pair string) (string, error) {
+	pool, ok := e.pools[pair]
+	if !ok {
+		return "", errUnknownPair
+	}
+
+	return pool.pool.address.Hex(), nil
+}
+
 func (e *EthereumServer) setupFactory(config *config.Config) error {
 	address := common.HexToAddress(config.FactoryAddress)
 

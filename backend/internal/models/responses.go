@@ -26,11 +26,12 @@ type PairInt64Response struct {
 }
 
 type PoolInfo struct {
-	NameA  string `json:"nameA"`
-	NameB  string `json:"nameB"`
-	TokenA string `json:"tokenA"`
-	TokenB string `json:"tokenB"`
-	Pool   string `json:"pool"`
+	NameA   string `json:"nameA"`
+	NameB   string `json:"nameB"`
+	TokenA  string `json:"tokenA"`
+	TokenB  string `json:"tokenB"`
+	TokenLP string `json:"tokenLP"`
+	Pool    string `json:"pool"`
 }
 
 type PoolsResponse struct {

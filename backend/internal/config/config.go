@@ -13,7 +13,6 @@ type Pair struct {
 	Name   string
 	TokenA string
 	TokenB string
-	Pool   string
 }
 
 type Config struct {
@@ -45,7 +44,6 @@ type pairsJSON struct {
 		NameB  string `json:"nameB"`
 		TokenA string `json:"tokenA"`
 		TokenB string `json:"tokenB"`
-		Pool   string `json:"pool"`
 	} `json:"pairs"`
 }
 
@@ -82,7 +80,6 @@ func readPairs(configPath string, config *Config) error {
 			Name:   fmt.Sprintf("%s-%s", nameA, nameB),
 			TokenA: tokenA,
 			TokenB: tokenB,
-			Pool:   p.Pool,
 		}
 
 		config.Pairs = append(config.Pairs, *newPair)

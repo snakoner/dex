@@ -21,12 +21,28 @@ func (a *App) GetPoolsHandle(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		tokenLpAddress, err := a.ethSrv.GetLP(p.Name)
+		if err != nil {
+			a.logger.Error(err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+
+		}
+		poolAddress, err := a.ethSrv.GetPool(p.Name)
+		if err != nil {
+			a.logger.Error(err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+
+		}
+
 		pool := &models.PoolInfo{
-			NameA:  tokenNames[0],
-			NameB:  tokenNames[1],
-			TokenA: p.TokenA,
-			TokenB: p.TokenB,
-			Pool:   p.Pool,
+			NameA:   tokenNames[0],
+			NameB:   tokenNames[1],
+			TokenA:  p.TokenA,
+			TokenB:  p.TokenB,
+			TokenLP: tokenLpAddress,
+			Pool:    poolAddress,
 		}
 
 		response.Pairs = append(response.Pairs, *pool)

@@ -5,8 +5,7 @@
             "nameA": "PEPE",
             "nameB": "GRT",
             "tokenA": "0x4104993a0a0F0F81eC76077E8CAaC5137b2556e6",
-            "tokenB": "0xc40D76aD1130fD9ec53a58E54F12aA6e088c1527",
-            "pool": "0x1030E1Eb161e3E491CF68b192C1f715e2dBc7dF2"
+            "tokenB": "0xc40D76aD1130fD9ec53a58E54F12aA6e088c1527"
         }
     ]
 }
