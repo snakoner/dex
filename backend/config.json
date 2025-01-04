@@ -1,5 +1,5 @@
 {
-    "name": "Ethereum Lottery Dapp smart contract backend",
+    "name": "Ethereum DEX smart contract backend",
     "log": {
         "level": "debug",
         "output": "none"
