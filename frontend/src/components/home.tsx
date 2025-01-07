@@ -3,7 +3,22 @@ import Header from "./dex/Header";
 import SwapCard from "./dex/SwapCard";
 import Features from "./dex/Features";
 import Footer from "./footer";
-import { readPools } from "@/lib/read-json";
+import { ethers } from "ethers";
+
+import { localStorageWalletConnectHandler, supportedChains } from "./constants";
+
+const convertSupportedChains = (): Map<bigint, ethers.Network> => {
+    let map = new Map<bigint, ethers.Network>();
+
+    for (const suppChains of supportedChains) {
+        map.set(
+            ethers.toBigInt(suppChains.chainId), 
+            new ethers.Network(suppChains.network, suppChains.chainId)
+        );
+    }
+
+    return map;
+}
 
 interface HomeProps {
   isWalletConnected?: boolean;
@@ -15,6 +30,13 @@ interface HomeProps {
   onSwap?: () => void;
 }
 
+interface Token {
+	name: string;
+	address: string;
+	totalSupply: bigint;
+	balance?: bigint;
+};
+
 interface Pair {
   nameA: string;
   nameB: string;
@@ -25,18 +47,18 @@ interface Pair {
 };
 
 const Home = ({
-  isWalletConnected = false,
-  walletAddress = "0x1234...5678",
-  networkName = "Ethereum Mainnet",
-  onWalletConnect = () => {},
-  onWalletDisconnect = () => {},
+  networkName = "Sepolia Testnet",
   onNetworkChange = () => {},
   onSwap = () => {},
 }: HomeProps) => {
-  const [pairs, setPairs] = useState<Pair[] | null>();
-  const [factoryAddress, setFactoryAddress] = useState<string|null>();
+  	const [pairs, setPairs] = useState<Pair[] | null>();
+  	const [factoryAddress, setFactoryAddress] = useState<string|null>();
+	const [walletError, setWalletError] = useState<string|null>(null);
+	const [connected, setConnected] = useState<boolean>(false);
+  	const [account, setAccount] = useState<string|null>(null);
+	const [network, setNetwork] = useState<ethers.Network|null>(null);
 
-  const getPools = async() => {
+  	const getPools = async() => {
 		try {
 			const response = await fetch("http://localhost:8000/get-pools", {
 				method: 'GET',
@@ -46,44 +68,99 @@ const Home = ({
 			});
 
 
-			const data = await response.json();
-      setFactoryAddress(data?.factoryAddress);
+		const data = await response.json();
+		setFactoryAddress(data?.factoryAddress);
 
-      // set pairs
-      let _pairs: Pair[] = [];
-      for (const p of data?.pairs) {
-        const _pair: Pair = {
-          nameA: p.nameA,
-          nameB: p.nameB,
-          tokenA: p.tokenA,
-          tokenB: p.tokenB,
-          tokenLP: p.tokenLP,
-          pool: p.pool,
-        };
-        _pairs.push(_pair);
-      }
+		// set pairs
+		let _pairs: Pair[] = [];
+		for (const p of data?.pairs) {
+			const _pair: Pair = {
+				nameA: p.nameA,
+				nameB: p.nameB,
+				tokenA: p.tokenA,
+				tokenB: p.tokenB,
+				tokenLP: p.tokenLP,
+				pool: p.pool,
+			};
 
-      console.log(_pairs);
+			_pairs.push(_pair);
+		}
 
-      setPairs(_pairs);
+		setPairs(_pairs);
 		} catch(error) {
 			console.log(error);
 		}
 	};
 
+	const connectWallet = async () => {
+		if (typeof window.ethereum === undefined) {
+			setWalletError("MetaMask is not installed. Please install it to use this feature.");
+			console.log(walletError);
+			return;
+		}
 
-  useEffect(() => {
-    getPools();
-  }, []);
+		try {
+			const accounts = await window.ethereum.request({
+				method: "eth_requestAccounts",
+			});
+
+			console.log(accounts);
+
+			if (accounts.length === 0) {
+				setConnected(false);
+				localStorage.setItem('walletConnected', 'false');
+				return;
+			}
+
+			setAccount(accounts[0]);
+			setConnected(true);
+			localStorage.setItem('walletConnected', 'true');
+
+			const provider = new ethers.BrowserProvider(window.ethereum);
+
+			const chainID =  (await provider.getNetwork()).chainId;
+			if (convertSupportedChains().get(chainID) === undefined) {
+				await window.ethereum.request({
+					method: 'wallet_switchEthereumChain',
+					params: [{ chainId: '0x' + supportedChains[0].chainId.toString(16) }], // chainId в формате hex (например, '0x1' для Ethereum Mainnet)
+				});
+			}
+
+			setNetwork((await provider.getNetwork()));
+		} catch (err) {
+			console.log(err);
+			setWalletError("Failed to connect wallet. Please try again.");
+			console.log(walletError);
+		}
+	}
+
+
+
+	const disconnectWallet = () => {
+        setConnected(false);
+        localStorage.setItem('walletConnected', 'false');
+        setAccount(null);
+    }
+
+  	useEffect(() => {
+		const walletConnected = localStorageWalletConnectHandler();
+		
+		setConnected(walletConnected);
+		if (walletConnected) {
+			connectWallet();
+		}
+
+		getPools();
+	}, []);
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Header
-        isConnected={isWalletConnected}
-        walletAddress={walletAddress}
+        isConnected={connected}
+        walletAddress={account}
         networkName={networkName}
-        onConnect={onWalletConnect}
-        onDisconnect={onWalletDisconnect}
+        onConnect={connectWallet}
+        onDisconnect={disconnectWallet}
         onNetworkChange={onNetworkChange}
       />
 

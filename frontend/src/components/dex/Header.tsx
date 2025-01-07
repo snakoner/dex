@@ -19,15 +19,20 @@ interface HeaderProps {
 }
 
 const networks = [
-  { id: "1", name: "Ethereum Mainnet" },
-  { id: "5", name: "Goerli Testnet" },
+  // { id: "1", name: "Ethereum Mainnet" },
+  // { id: "5", name: "Goerli Testnet" },
   { id: "11155111", name: "Sepolia Testnet" },
 ];
 
+const slicedWalletAddress = (acc: string) => {
+  return acc.slice(0, 6) + "..." + acc.slice(-4);
+};
+
+
 const Header = ({
-  isConnected = false,
-  walletAddress = "0x1234...5678",
-  networkName = "Ethereum Mainnet",
+  isConnected,
+  walletAddress,
+  networkName = "Sepolia Testnet",
   onConnect = () => {},
   onDisconnect = () => {},
   onNetworkChange = () => {},
@@ -36,7 +41,7 @@ const Header = ({
     <header className="w-full h-[72px] px-6 bg-background/80 backdrop-blur-sm border-b border-border flex items-center justify-between sticky top-0 z-50">
       <div className="flex items-center gap-4">
         <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-blue-600">
-          DEX
+          DEXSwap
         </h1>
 
         <DropdownMenu>
@@ -67,7 +72,7 @@ const Header = ({
             <DropdownMenuTrigger asChild>
               <Button variant="outline" className="flex items-center gap-2">
                 <WalletIcon className="h-4 w-4" />
-                <span>{walletAddress}</span>
+                <span id='wallet-connect-button-text'>{walletAddress ? slicedWalletAddress(walletAddress) : ""}</span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent>
@@ -79,7 +84,7 @@ const Header = ({
         ) : (
           <Button onClick={onConnect} className="flex items-center gap-2">
             <WalletIcon className="h-4 w-4" />
-            Connect Wallet
+            <div id='wallet-connect-button-text'>Connect Wallet</div>
           </Button>
         )}
       </div>
