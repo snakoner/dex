@@ -5,7 +5,7 @@ import Features from "./dex/Features";
 import Footer from "./footer";
 import { ethers } from "ethers";
 
-import { localStorageWalletConnectHandler, supportedChains } from "./constants";
+import { ALCHEMY_RPC_URL, ERC20_ABI, localStorageWalletConnectHandler, supportedChains, icons } from "./constants";
 
 const convertSupportedChains = (): Map<bigint, ethers.Network> => {
     let map = new Map<bigint, ethers.Network>();
@@ -30,10 +30,12 @@ interface HomeProps {
   onSwap?: () => void;
 }
 
-interface Token {
+export interface Token {
 	name: string;
 	address: string;
 	totalSupply: bigint;
+	decimals: bigint;
+	icon?: string;
 	balance?: bigint;
 };
 
@@ -51,12 +53,67 @@ const Home = ({
   onNetworkChange = () => {},
   onSwap = () => {},
 }: HomeProps) => {
-  	const [pairs, setPairs] = useState<Pair[] | null>();
+  	const [pairs, setPairs] = useState<Pair[]>();
   	const [factoryAddress, setFactoryAddress] = useState<string|null>();
 	const [walletError, setWalletError] = useState<string|null>(null);
 	const [connected, setConnected] = useState<boolean>(false);
   	const [account, setAccount] = useState<string|null>(null);
 	const [network, setNetwork] = useState<ethers.Network|null>(null);
+
+	// swap table
+	const [token0, setToken0] = useState<Token>(null);
+	const [token1, setToken1] = useState<Token>(null);
+
+	const setTokens = async(pairs: Pair[]) => {
+		// if no pairs received
+		if (pairs && pairs.length == 0) {
+			return;
+		}
+
+		// if wallet is connected than can set balance of wallet
+		const _token0: Token = {
+			name: pairs[0].nameA,
+			address: pairs[0].tokenA,
+			icon: icons.has(pairs[0].nameA) ? icons.get(pairs[0].nameA) : "",
+		};
+
+		const _token1: Token = {
+			name: pairs[0].nameB,
+			address: pairs[0].tokenB,
+			icon: icons.has(pairs[0].nameB) ? icons.get(pairs[0].nameB) : "",
+		};
+
+		const provider = new ethers.JsonRpcProvider(ALCHEMY_RPC_URL);
+		const contract0 = new ethers.Contract(_token0.address, ERC20_ABI, provider);
+		const contract1 = new ethers.Contract(_token0.address, ERC20_ABI, provider);
+
+		try {
+			_token0.totalSupply = await contract0.totalSupply();
+			_token0.decimals = await contract0.decimals();
+			_token1.totalSupply = await contract1.totalSupply();
+			_token1.decimals = await contract1.decimals();
+		} catch (error) {
+			console.log(error);
+			return;
+		}
+
+		if (localStorageWalletConnectHandler()) {
+			try {
+				console.log("account: ", account);
+				_token0.balance = await contract0.balanceOf(account);
+				_token1.balance = await contract0.balanceOf(account);
+			} catch (error) {
+				console.log(error);
+				return;
+			}
+		}
+
+		setToken0(_token0);
+		setToken1(_token1);
+
+		console.log(_token0);
+		console.log(_token1);
+	}
 
   	const getPools = async() => {
 		try {
@@ -87,6 +144,8 @@ const Home = ({
 		}
 
 		setPairs(_pairs);
+		setTokens(_pairs);
+
 		} catch(error) {
 			console.log(error);
 		}
@@ -134,8 +193,6 @@ const Home = ({
 		}
 	}
 
-
-
 	const disconnectWallet = () => {
         setConnected(false);
         localStorage.setItem('walletConnected', 'false');
@@ -149,9 +206,9 @@ const Home = ({
 		if (walletConnected) {
 			connectWallet();
 		}
-
-		getPools();
-	}, []);
+		if (account)
+			getPools();
+	}, [account]);
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -173,7 +230,7 @@ const Home = ({
           </h1>
 
           <div className="w-full max-w-[460px]">
-            <SwapCard onSwap={onSwap} />
+            <SwapCard input={token0} output={token1} onSwap={onSwap}/>
           </div>
 
           <div className="mt-8 text-center text-sm text-muted-foreground">

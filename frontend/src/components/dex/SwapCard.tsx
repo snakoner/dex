@@ -6,6 +6,7 @@ import TokenField from "./TokenField";
 import SwapDetails from "./SwapDetails";
 import { ethers } from "ethers";
 import { ALCHEMY_RPC_URL, ERC20_ABI } from "../constants";
+import { Token } from "../home";
 
 interface InputToken {
   symbol: string;
@@ -13,7 +14,7 @@ interface InputToken {
   balance: string;
 };
 
-interface OutputToken {
+interface InputToken {
   symbol: string;
   icon: string;
   balance: string;
@@ -21,8 +22,8 @@ interface OutputToken {
 
 
 interface SwapCardProps {
-  input?: InputToken;
-  output?: OutputToken;
+  input?: Token;
+  output?: Token;
   inputAmount?: string;
   outputAmount?: string;
   onSwap?: () => void;
@@ -31,19 +32,24 @@ interface SwapCardProps {
   onOutputTokenSelect?: (token: string) => void;
 }
 
-const defaultInputToken0: InputToken = {
-  symbol: "PEPE",
-  icon: "https://cryptologos.cc/logos/pepe-pepe-logo.png?v=040",
-  balance: "1.5",
-};
-
-const defaultInputToken1 : InputToken = {
-  symbol: "GRT",
-  icon: "https://cryptologos.cc/logos/the-graph-grt-logo.png?v=040",
-  balance: "1000.0",
-};
+const toStringBalance = (balance: bigint, decimals: bigint) =>  {
+  try {
+    if (balance === ethers.toBigInt(0)) {
+      return "0.0";
+    } else {
+      const num = balance;
+      const divisor = Math.pow(10, Number(decimals));
+      const b = num / BigInt(divisor);
+      return b.toString();
+    }  
+  } catch (error) {
+    return "0.0";
+  }
+}
 
 const SwapCard = ({
+  input, 
+  output,
   inputAmount = "",
   outputAmount = "",
   onSwap = () => {},
@@ -51,26 +57,15 @@ const SwapCard = ({
   onInputTokenSelect = () => {},
   onOutputTokenSelect = () => {},
 }: SwapCardProps) => {
-  const [token0, setToken0] = useState<InputToken>(defaultInputToken0);
-  const [token1, setToken1] = useState<InputToken>(defaultInputToken1);
-
-  const providerRpc = new ethers.JsonRpcProvider(ALCHEMY_RPC_URL);
-  // const erc20InteractProvider = new ethers.Contract();
-
-  // const getToken0Balance = async () => {  
-  //   try {
-  //     // await providerRpc.
-  //   }
-  // };
 
   return (
     <Card className="w-[460px] p-6 space-y-4 bg-background border-border backdrop-blur-sm bg-opacity-95 shadow-lg hover:shadow-xl transition-all duration-300 animate-slide-in">
       <div className="space-y-2">
         <TokenField
           label="From"
-          tokenSymbol={token0.symbol}
-          tokenIcon={token0.icon}
-          balance={token0.balance}
+          tokenSymbol={input?.name}
+          tokenIcon={input?.icon}
+          balance={toStringBalance(input?.balance, input?.decimals)}
           amount={inputAmount}
           onAmountChange={onInputAmountChange}
           onTokenSelect={onInputTokenSelect}
@@ -82,10 +77,7 @@ const SwapCard = ({
             size="icon"
             className="rounded-full hover:bg-primary/20 transition-colors duration-300 hover:scale-110 transform"
             onClick={() => {
-              setToken0(token1);
-              setToken1(token0);
-              onInputTokenSelect(token1.symbol);
-              onOutputTokenSelect(token0.symbol);
+
             }}
           >
             <ArrowDownUp className="h-4 w-4" />
@@ -94,9 +86,9 @@ const SwapCard = ({
 
         <TokenField
           label="To"
-          tokenSymbol={token1.symbol}
-          tokenIcon={token1.icon}
-          balance={token1.balance}
+          tokenSymbol={output?.name}
+          tokenIcon={output?.icon}
+          balance={toStringBalance(output?.balance, output?.decimals)}
           amount={outputAmount}
           onTokenSelect={onOutputTokenSelect}
         />

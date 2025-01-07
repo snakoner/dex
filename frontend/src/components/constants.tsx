@@ -25,7 +25,14 @@ export const ERC20_ABI = [
     "function allowance(address owner, address spender) external view returns (uint256)",
     "function approve(address spender, uint256 value) external returns (bool)",
     "function transferFrom(address from, address to, uint256 value) external returns (bool)",
+    "function totalSupply() external view returns (uint256)",
+    "function decimals() external view returns (uint8)",
 ];
+
+export const icons = new Map<string, string>([
+    ["PEPE", "https://cryptologos.cc/logos/pepe-pepe-logo.png?v=040"],
+    ["GRT", "https://cryptologos.cc/logos/the-graph-grt-logo.png?v=040"],
+]);
 
 export const localStorageWalletConnectHandler = () => {
     if (localStorage.getItem('walletConnected') === undefined) {
