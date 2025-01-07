@@ -1,8 +1,9 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import Header from "./dex/Header";
 import SwapCard from "./dex/SwapCard";
 import Features from "./dex/Features";
 import Footer from "./footer";
+import { readPools } from "@/lib/read-json";
 
 interface HomeProps {
   isWalletConnected?: boolean;
@@ -14,6 +15,15 @@ interface HomeProps {
   onSwap?: () => void;
 }
 
+interface Pair {
+  nameA: string;
+  nameB: string;
+  pool: string;
+  tokenA: string;
+  tokenB: string;
+  tokenLP: string;
+};
+
 const Home = ({
   isWalletConnected = false,
   walletAddress = "0x1234...5678",
@@ -23,6 +33,49 @@ const Home = ({
   onNetworkChange = () => {},
   onSwap = () => {},
 }: HomeProps) => {
+  const [pairs, setPairs] = useState<Pair[] | null>();
+  const [factoryAddress, setFactoryAddress] = useState<string|null>();
+
+  const getPools = async() => {
+		try {
+			const response = await fetch("http://localhost:8000/get-pools", {
+				method: 'GET',
+				headers: {
+					'Content-Type': 'application/json',
+				},     
+			});
+
+
+			const data = await response.json();
+      setFactoryAddress(data?.factoryAddress);
+
+      // set pairs
+      let _pairs: Pair[] = [];
+      for (const p of data?.pairs) {
+        const _pair: Pair = {
+          nameA: p.nameA,
+          nameB: p.nameB,
+          tokenA: p.tokenA,
+          tokenB: p.tokenB,
+          tokenLP: p.tokenLP,
+          pool: p.pool,
+        };
+        _pairs.push(_pair);
+      }
+
+      console.log(_pairs);
+
+      setPairs(_pairs);
+		} catch(error) {
+			console.log(error);
+		}
+	};
+
+
+  useEffect(() => {
+    getPools();
+  }, []);
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Header

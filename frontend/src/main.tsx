@@ -11,11 +11,9 @@ TempoDevtools.init();
 const basename = import.meta.env.BASE_URL;
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
-  <React.StrictMode>
     <ThemeProvider defaultTheme="system" storageKey="dex-theme">
       <BrowserRouter basename={basename}>
         <App />
       </BrowserRouter>
-    </ThemeProvider>
-  </React.StrictMode>,
+    </ThemeProvider>,
 );

@@ -1,0 +1,12 @@
+{
+    "images": [
+        {
+            "symbol": "PEPE",
+            "src": "https://cryptologos.cc/logos/pepe-pepe-logo.png?v=040"
+        },
+        {
+            "symbol": "GRT",
+            "src": "https://cryptologos.cc/logos/the-graph-grt-logo.png?v=040"
+        }
+    ]
+}
