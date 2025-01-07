@@ -27,6 +27,7 @@ interface SwapCardProps {
   inputAmount?: string;
   outputAmount?: string;
   onSwap?: () => void;
+  onDirectionSwap?: () => void;
   onInputAmountChange?: (value: string) => void;
   onInputTokenSelect?: (token: string) => void;
   onOutputTokenSelect?: (token: string) => void;
@@ -52,6 +53,7 @@ const SwapCard = ({
   output,
   inputAmount = "",
   outputAmount = "",
+  onDirectionSwap = () => {},
   onSwap = () => {},
   onInputAmountChange = () => {},
   onInputTokenSelect = () => {},
@@ -76,9 +78,7 @@ const SwapCard = ({
             variant="ghost"
             size="icon"
             className="rounded-full hover:bg-primary/20 transition-colors duration-300 hover:scale-110 transform"
-            onClick={() => {
-
-            }}
+            onClick={onDirectionSwap}
           >
             <ArrowDownUp className="h-4 w-4" />
           </Button>

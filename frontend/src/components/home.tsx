@@ -115,6 +115,11 @@ const Home = ({
 		console.log(_token1);
 	}
 
+	const onDirectionSwap =() => {
+		setToken0(token1);
+		setToken1(token0);
+	}
+
   	const getPools = async() => {
 		try {
 			const response = await fetch("http://localhost:8000/get-pools", {
@@ -230,7 +235,7 @@ const Home = ({
           </h1>
 
           <div className="w-full max-w-[460px]">
-            <SwapCard input={token0} output={token1} onSwap={onSwap}/>
+            <SwapCard input={token0} output={token1} onDirectionSwap={onDirectionSwap} onSwap={onSwap}/>
           </div>
 
           <div className="mt-8 text-center text-sm text-muted-foreground">

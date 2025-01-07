@@ -96,7 +96,10 @@ const TokenField = ({
           type="number"
           placeholder="0.0"
           value={amount}
-          onChange={(e) => onAmountChange(e.target.value)}
+          onChange={(e) => 
+            {
+              onAmountChange(e.target.value);
+            }}
           className="flex-1 focus:ring-2 focus:ring-primary/30 transition-all duration-300"
         />
       </div>
