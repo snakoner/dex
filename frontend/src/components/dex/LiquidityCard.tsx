@@ -48,7 +48,7 @@ const toStringBalance = (balance: bigint, decimals: bigint) =>  {
   }
 }
 
-const SwapCard = ({
+const LiquidityCard = ({
   input, 
   output,
   inputAmount,
@@ -96,7 +96,6 @@ const SwapCard = ({
         />
       </div>
 
-      <SwapDetails />
 
       <Button
         className="w-full hover:scale-[1.02] transition-transform duration-300 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
@@ -109,4 +108,4 @@ const SwapCard = ({
   );
 };
 
-export default SwapCard;
+export default LiquidityCard;

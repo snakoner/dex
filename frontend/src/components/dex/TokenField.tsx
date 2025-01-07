@@ -14,8 +14,9 @@ interface TokenFieldProps {
   tokenSymbol?: string;
   tokenIcon?: string;
   balance?: string;
-  amount?: string;
-  onAmountChange?: (value: string) => void;
+  amount?: number;
+  useInputField?: boolean;
+  onAmountChange?: (name: string, amount: number) => void;
   onTokenSelect?: (token: string) => void;
 }
 
@@ -42,8 +43,9 @@ const TokenField = ({
   tokenSymbol = "ETH",
   tokenIcon = "https://api.dicebear.com/7.x/avataaars/svg?seed=ETH",
   balance = "1.5",
-  amount = "",
-  onAmountChange = () => {},
+  amount = 0,
+  useInputField = false,
+  onAmountChange = (num: string, amount: number) => {},
   onTokenSelect = () => {},
 }: TokenFieldProps) => {
   return (
@@ -91,17 +93,33 @@ const TokenField = ({
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
-
-        <Input
+        {
+          useInputField ?
+          <Input
           type="number"
-          placeholder="0.0"
+          placeholder="0"
+          id="_this"
+          onChange={(e) => 
+            {
+              document.getElementById('_this').innerHTML = e.target.value;
+              onAmountChange(tokenSymbol, Number(e.target.value));
+            }}
+          className="flex-1 focus:ring-2 focus:ring-primary/30 transition-all duration-300"
+        /> : 
+          <Input
+          type="number"
+          placeholder="0"
+          id="_this"
           value={amount}
           onChange={(e) => 
             {
-              onAmountChange(e.target.value);
+              document.getElementById('_this').innerHTML = e.target.value;
+              onAmountChange(tokenSymbol, Number(e.target.value));
             }}
           className="flex-1 focus:ring-2 focus:ring-primary/30 transition-all duration-300"
-        />
+          />
+        }
+        
       </div>
     </div>
   );

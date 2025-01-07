@@ -19,6 +19,12 @@ export const CONTRACT_ABI = [
     "function deposit() external payable"
 ];
 
+export const POOL_ABI = [
+    "function getReserve0() public view returns (uint256)",
+    "function getReserve1() public view returns (uint256)",
+    "function getOutputAmount(uint256 amount, uint256 inReserve,uint256 outReserve) public view returns (uint256)",
+];
+
 export const ERC20_ABI = [
     "function balanceOf(address account) external view returns (uint256)",
     "function transfer(address to, uint256 value) external returns (bool)",

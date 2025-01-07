@@ -5,7 +5,8 @@ import Features from "./dex/Features";
 import Footer from "./footer";
 import { ethers } from "ethers";
 
-import { ALCHEMY_RPC_URL, ERC20_ABI, localStorageWalletConnectHandler, supportedChains, icons } from "./constants";
+import { ALCHEMY_RPC_URL, ERC20_ABI, POOL_ABI, localStorageWalletConnectHandler, supportedChains, icons } from "./constants";
+import LiquidityCard from "./dex/LiquidityCard";
 
 const convertSupportedChains = (): Map<bigint, ethers.Network> => {
     let map = new Map<bigint, ethers.Network>();
@@ -53,16 +54,54 @@ const Home = ({
   onNetworkChange = () => {},
   onSwap = () => {},
 }: HomeProps) => {
-  	const [pairs, setPairs] = useState<Pair[]>();
+  	const [pairs, setPairs] = useState<Map<string, Pair>>();
   	const [factoryAddress, setFactoryAddress] = useState<string|null>();
 	const [walletError, setWalletError] = useState<string|null>(null);
 	const [connected, setConnected] = useState<boolean>(false);
   	const [account, setAccount] = useState<string|null>(null);
 	const [network, setNetwork] = useState<ethers.Network|null>(null);
-
+	const [outputAmount, setOutputAmount] = useState<number>(0);
 	// swap table
 	const [token0, setToken0] = useState<Token>(null);
 	const [token1, setToken1] = useState<Token>(null);
+	const [isSwapTokensCard, setIsSwapTokensCard] = useState<boolean>(true);
+
+	const provider = new ethers.JsonRpcProvider(ALCHEMY_RPC_URL);
+
+	const onInputAmountChange = async(name: string, amount: number) => {
+		let tokenFrom: Token = null;
+		let tokenTo: Token = null;
+
+		if (amount == 0) {
+			return;
+		}
+
+		if (name == token0.name) {
+			tokenFrom = token0;
+			tokenTo = token1;
+		} else {
+			tokenFrom = token1;
+			tokenTo = token0;
+		}
+
+		// get pair name
+		let pairName: string;
+		if (tokenFrom.address < tokenTo.address)
+			pairName = token0.name + '-' + token1.name;
+		else
+			pairName = token1.name + '-' + token0.name;
+
+		try {
+			const poolContract = new ethers.Contract(pairs.get(pairName).pool, POOL_ABI, provider);
+			const reserve0 = await poolContract.getReserve0();
+			const reserve1 = await poolContract.getReserve0();
+			const outputAmount = await poolContract.getOutputAmount(amount, reserve0, reserve1);
+			
+			setOutputAmount(Number(outputAmount));
+		} catch (error) {
+			console.log(error);
+		}
+	}
 
 	const setTokens = async(pairs: Pair[]) => {
 		// if no pairs received
@@ -83,9 +122,8 @@ const Home = ({
 			icon: icons.has(pairs[0].nameB) ? icons.get(pairs[0].nameB) : "",
 		};
 
-		const provider = new ethers.JsonRpcProvider(ALCHEMY_RPC_URL);
 		const contract0 = new ethers.Contract(_token0.address, ERC20_ABI, provider);
-		const contract1 = new ethers.Contract(_token0.address, ERC20_ABI, provider);
+		const contract1 = new ethers.Contract(_token1.address, ERC20_ABI, provider);
 
 		try {
 			_token0.totalSupply = await contract0.totalSupply();
@@ -135,6 +173,7 @@ const Home = ({
 
 		// set pairs
 		let _pairs: Pair[] = [];
+		let pairsHm = new Map<string, Pair>();
 		for (const p of data?.pairs) {
 			const _pair: Pair = {
 				nameA: p.nameA,
@@ -145,12 +184,24 @@ const Home = ({
 				pool: p.pool,
 			};
 
+			let pairName: string;
+			if (p.tokenA < p.tokenB) {
+				pairName = p.nameA + '-' + p.nameB;
+			} else {
+				pairName = p.nameB + '-' + p.nameA;
+			}
+
+			pairsHm.set(pairName, _pair);
 			_pairs.push(_pair);
 		}
 
-		setPairs(_pairs);
-		setTokens(_pairs);
+		setPairs(pairsHm);
 
+		for (const [k, v] of pairsHm) {
+			console.log(k, v);
+		}
+
+		setTokens(_pairs);
 		} catch(error) {
 			console.log(error);
 		}
@@ -204,6 +255,10 @@ const Home = ({
         setAccount(null);
     }
 
+	const switchCard = () => {
+		setIsSwapTokensCard(!isSwapTokensCard);
+	}
+
   	useEffect(() => {
 		const walletConnected = localStorageWalletConnectHandler();
 		
@@ -230,12 +285,34 @@ const Home = ({
         <Features />
 
         <div className="mt-16">
-          <h1 className="text-4xl font-bold mb-8 text-center text-foreground bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-blue-600 animate-slide-in">
-            Swap Tokens
-          </h1>
-
+			<div style={{cursor:"pointer"}} onClick={switchCard}>
+				<h1 className="text-4xl font-bold mb-8 text-center text-foreground bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-blue-600 animate-slide-in">
+					{isSwapTokensCard ? "Swap Tokens" : "Add Liquidity"}
+				</h1>
+		  	</div>
           <div className="w-full max-w-[460px]">
-            <SwapCard input={token0} output={token1} onDirectionSwap={onDirectionSwap} onSwap={onSwap}/>
+			{isSwapTokensCard 
+			? 
+			<SwapCard 
+				input={token0} 
+				output={token1}
+				onDirectionSwap={onDirectionSwap}
+				onSwap={onSwap}
+				onInputAmountChange={onInputAmountChange}
+				outputAmount={outputAmount}
+			/>:			
+			<LiquidityCard 
+			input={token0} 
+			output={token1}
+			onDirectionSwap={onDirectionSwap}
+			onSwap={onSwap}
+			onInputAmountChange={onInputAmountChange}
+			outputAmount={outputAmount}
+			/>
+			}
+            
+
+
           </div>
 
           <div className="mt-8 text-center text-sm text-muted-foreground">
