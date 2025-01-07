@@ -18,6 +18,7 @@ interface TokenFieldProps {
   useInputField?: boolean;
   onAmountChange?: (name: string, amount: number) => void;
   onTokenSelect?: (token: string) => void;
+  onMaxClick?: () => void
 }
 
 const defaultTokens = [
@@ -47,16 +48,18 @@ const TokenField = ({
   useInputField = false,
   onAmountChange = (num: string, amount: number) => {},
   onTokenSelect = () => {},
+  onMaxClick = () => {},
 }: TokenFieldProps) => {
   return (
     <div className="w-full p-4 rounded-lg bg-card border border-border hover:border-primary/50 transition-colors duration-300">
-      <div className="flex justify-between items-center mb-2">
-        <span className="text-sm text-muted-foreground">{label}</span>
-        <span className="text-sm text-muted-foreground">
-          Balance: {balance}
-        </span>
+      <div style={{cursor:"pointer"}} onClick={onMaxClick}>
+        <div className="flex justify-between items-center mb-2">
+          <span className="text-sm text-muted-foreground">{label}</span>
+          <span className="text-sm text-muted-foreground">
+            Balance: {balance}
+          </span>
+        </div>
       </div>
-
       <div className="flex gap-2">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

@@ -7,6 +7,7 @@ import SwapDetails from "./SwapDetails";
 import { ethers } from "ethers";
 import { ALCHEMY_RPC_URL, ERC20_ABI } from "../constants";
 import { Token } from "../home";
+import LiquidityDetails from "./LiquidityDetails";
 
 interface InputToken {
   symbol: string;
@@ -64,7 +65,7 @@ const LiquidityCard = ({
     <Card className="w-[460px] p-6 space-y-4 bg-background border-border backdrop-blur-sm bg-opacity-95 shadow-lg hover:shadow-xl transition-all duration-300 animate-slide-in">
       <div className="space-y-2">
         <TokenField
-          label="From"
+          label="Max"
           tokenSymbol={input?.name}
           tokenIcon={input?.icon}
           balance={toStringBalance(input?.balance, input?.decimals)}
@@ -74,19 +75,9 @@ const LiquidityCard = ({
           onTokenSelect={onInputTokenSelect}
         />
 
-        <div className="flex justify-center">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="rounded-full hover:bg-primary/20 transition-colors duration-300 hover:scale-110 transform"
-            onClick={onDirectionSwap}
-          >
-            <ArrowDownUp className="h-4 w-4" />
-          </Button>
-        </div>
 
         <TokenField
-          label="To"
+          label="Max"
           tokenSymbol={output?.name}
           tokenIcon={output?.icon}
           balance={toStringBalance(output?.balance, output?.decimals)}
@@ -96,13 +87,19 @@ const LiquidityCard = ({
         />
       </div>
 
+        <LiquidityDetails 
+            token0Name={input?.name}
+            token1Name={output?.name}
+            reserves0={0}
+            reserves1={0}
+        />
 
       <Button
         className="w-full hover:scale-[1.02] transition-transform duration-300 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
         size="lg"
         onClick={onSwap}
       >
-        Swap
+        Add liquidity
       </Button>
     </Card>
   );

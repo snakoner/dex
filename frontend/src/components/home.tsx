@@ -22,13 +22,13 @@ const convertSupportedChains = (): Map<bigint, ethers.Network> => {
 }
 
 interface HomeProps {
-  isWalletConnected?: boolean;
-  walletAddress?: string;
-  networkName?: string;
-  onWalletConnect?: () => void;
-  onWalletDisconnect?: () => void;
-  onNetworkChange?: (network: string) => void;
-  onSwap?: () => void;
+	isWalletConnected?: boolean;
+	walletAddress?: string;
+	networkName?: string;
+	onWalletConnect?: () => void;
+	onWalletDisconnect?: () => void;
+	onNetworkChange?: (network: string) => void;
+	onSwap?: () => void;
 }
 
 export interface Token {
@@ -41,12 +41,14 @@ export interface Token {
 };
 
 interface Pair {
-  nameA: string;
-  nameB: string;
-  pool: string;
-  tokenA: string;
-  tokenB: string;
-  tokenLP: string;
+	nameA: string;
+	nameB: string;
+	pool: string;
+	reservesA: bigint;
+	reservesB: bigint;
+	tokenA: string;
+	tokenB: string;
+	tokenLP: string;
 };
 
 const Home = ({
@@ -60,13 +62,31 @@ const Home = ({
 	const [connected, setConnected] = useState<boolean>(false);
   	const [account, setAccount] = useState<string|null>(null);
 	const [network, setNetwork] = useState<ethers.Network|null>(null);
-	const [outputAmount, setOutputAmount] = useState<number>(0);
+
 	// swap table
+	const [inputSwapAmount, setInputSwapAmount] = useState<number>(0);
+	const [outputSwapAmount, setOutputSwapAmount] = useState<number>(0);
 	const [token0, setToken0] = useState<Token>(null);
 	const [token1, setToken1] = useState<Token>(null);
 	const [isSwapTokensCard, setIsSwapTokensCard] = useState<boolean>(true);
 
+
+	// liquidity
+	const [inputLiquidityAmount, setInputLiquidityAmount] = useState<number>(0);
+	const [outputLiquidityAmount, setOutputLiquidityAmount] = useState<number>(0);
+	const [isAddAnyLiquidity, setIsAddAnyLiquidity] = useState<boolean>(false);
+
 	const provider = new ethers.JsonRpcProvider(ALCHEMY_RPC_URL);
+
+	const getPairName = () => {
+		let pairName: string;
+		if (token0.address < token1.address)
+			pairName = token0.name + '-' + token1.name;
+		else
+			pairName = token1.name + '-' + token0.name;
+
+		return pairName;
+	}
 
 	const onInputAmountChange = async(name: string, amount: number) => {
 		let tokenFrom: Token = null;
@@ -85,19 +105,40 @@ const Home = ({
 		}
 
 		// get pair name
-		let pairName: string;
-		if (tokenFrom.address < tokenTo.address)
-			pairName = token0.name + '-' + token1.name;
-		else
-			pairName = token1.name + '-' + token0.name;
-
 		try {
-			const poolContract = new ethers.Contract(pairs.get(pairName).pool, POOL_ABI, provider);
+			const poolContract = new ethers.Contract(pairs.get(getPairName()).pool, POOL_ABI, provider);
 			const reserve0 = await poolContract.getReserve0();
 			const reserve1 = await poolContract.getReserve0();
 			const outputAmount = await poolContract.getOutputAmount(amount, reserve0, reserve1);
 			
-			setOutputAmount(Number(outputAmount));
+			setInputSwapAmount(Number(amount));
+			setOutputSwapAmount(Number(outputAmount));
+			console.log('input = ', amount, ' output = ', outputAmount);
+		} catch (error) {
+			console.log(error);
+		}
+	}
+
+
+	const onInputLiquidityAmountChange = async(name: string, amount: number) => {
+		if (amount == 0) {
+			return;
+		}
+
+		// get pair name
+		try {
+			const poolContract = new ethers.Contract(pairs.get(getPairName()).pool, POOL_ABI, provider);
+			const reserve0 = await poolContract.getReserve0();
+			const reserve1 = await poolContract.getReserve0();
+
+			if (reserve0 == 0 && reserve1 == 0) {
+				setIsAddAnyLiquidity(true);
+			}
+
+			
+			setInputSwapAmount(Number(amount));
+			setOutputSwapAmount(Number(outputAmount));
+			console.log('input = ', amount, ' output = ', outputAmount);
 		} catch (error) {
 			console.log(error);
 		}
@@ -139,7 +180,7 @@ const Home = ({
 			try {
 				console.log("account: ", account);
 				_token0.balance = await contract0.balanceOf(account);
-				_token1.balance = await contract0.balanceOf(account);
+				_token1.balance = await contract1.balanceOf(account);
 			} catch (error) {
 				console.log(error);
 				return;
@@ -196,11 +237,6 @@ const Home = ({
 		}
 
 		setPairs(pairsHm);
-
-		for (const [k, v] of pairsHm) {
-			console.log(k, v);
-		}
-
 		setTokens(_pairs);
 		} catch(error) {
 			console.log(error);
@@ -299,15 +335,15 @@ const Home = ({
 				onDirectionSwap={onDirectionSwap}
 				onSwap={onSwap}
 				onInputAmountChange={onInputAmountChange}
-				outputAmount={outputAmount}
+				outputAmount={outputSwapAmount}
 			/>:			
 			<LiquidityCard 
-			input={token0} 
-			output={token1}
-			onDirectionSwap={onDirectionSwap}
-			onSwap={onSwap}
-			onInputAmountChange={onInputAmountChange}
-			outputAmount={outputAmount}
+				input={token0} 
+				output={token1}
+				onDirectionSwap={onDirectionSwap}
+				onSwap={onSwap}
+				onInputAmountChange={onInputAmountChange}
+				outputAmount={outputLiquidityAmount}
 			/>
 			}
             
