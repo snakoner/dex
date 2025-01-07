@@ -1,14 +1,12 @@
 const { ethers } = require("ethers");
 import { readPools, Pools } from "./read-pools";
+import { factoryABI } from "./abi";
 require('dotenv').config();
 
 const ALCHEMY_RPC_URL = process.env.RPC_URL;
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
 const pools: Pools = readPools("./config/pools.json");
-const factoryABI = [
-    "function createPool(address token0, address token1, string memory name, string memory symbol, uint24 fee) external returns (address)",
-    "function getPool(address token0, address token1) external view returns (address)"
-];
+
 const pair = {
     nameA: pools.pairs[0].nameA,
     nameB: pools.pairs[0].nameB,
