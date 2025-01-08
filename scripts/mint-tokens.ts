@@ -1,6 +1,7 @@
 const { ethers } = require("ethers");
 require('dotenv').config();
-import { ercMintable20ABI } from "./abi";
+
+const { abi } = require("../artifacts/contracts/tests/GRT.sol/GRT.json");
 
 const ALCHEMY_RPC_URL = process.env.RPC_URL;
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
@@ -14,7 +15,7 @@ async function mintTokens() {
     if (ALCHEMY_RPC_URL !== undefined && PRIVATE_KEY != undefined) {
         const provider = new ethers.JsonRpcProvider(ALCHEMY_RPC_URL);
         const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
-        const contract = new ethers.Contract(tokenAddress, ercMintable20ABI, wallet);
+        const contract = new ethers.Contract(tokenAddress, abi, wallet);
         const result = await contract.mint(
             to,
             amount
