@@ -23,6 +23,7 @@ export const POOL_ABI = [
     "function getReserve0() public view returns (uint256)",
     "function getReserve1() public view returns (uint256)",
     "function getOutputAmount(uint256 amount, uint256 inReserve,uint256 outReserve) public view returns (uint256)",
+    "function getAmountToAdd(uint256 amountIn, bool zeroToOne) public view returns (uint256)"
 ];
 
 export const ERC20_ABI = [

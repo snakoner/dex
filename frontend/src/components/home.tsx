@@ -40,7 +40,7 @@ export interface Token {
 	balance?: bigint;
 };
 
-interface Pair {
+export interface Pair {
 	nameA: string;
 	nameB: string;
 	pool: string;
@@ -56,7 +56,7 @@ const Home = ({
   onNetworkChange = () => {},
   onSwap = () => {},
 }: HomeProps) => {
-  	const [pairs, setPairs] = useState<Map<string, Pair>>();
+  	const [pairs, setPairs] = useState<Map<string, Pair> | null>();
   	const [factoryAddress, setFactoryAddress] = useState<string|null>();
 	const [walletError, setWalletError] = useState<string|null>(null);
 	const [connected, setConnected] = useState<boolean>(false);
@@ -70,7 +70,6 @@ const Home = ({
 	const [token1, setToken1] = useState<Token>(null);
 	const [isSwapTokensCard, setIsSwapTokensCard] = useState<boolean>(true);
 
-
 	// liquidity
 	const [inputLiquidityAmount, setInputLiquidityAmount] = useState<number>(0);
 	const [outputLiquidityAmount, setOutputLiquidityAmount] = useState<number>(0);
@@ -80,6 +79,10 @@ const Home = ({
 
 	const getPairName = () => {
 		let pairName: string;
+		if (!token0) {
+			return "";
+		}
+
 		if (token0.address < token1.address)
 			pairName = token0.name + '-' + token1.name;
 		else
@@ -88,6 +91,15 @@ const Home = ({
 		return pairName;
 	}
 
+	const getCurrentPair = () => {
+		if (!pairs.has(getPairName()))
+			return null;
+		return pairs.get(getPairName());
+	}
+
+	/*
+		swap and liquidity setters
+	*/
 	const onInputAmountChange = async(name: string, amount: number) => {
 		let tokenFrom: Token = null;
 		let tokenTo: Token = null;
@@ -108,7 +120,7 @@ const Home = ({
 		try {
 			const poolContract = new ethers.Contract(pairs.get(getPairName()).pool, POOL_ABI, provider);
 			const reserve0 = await poolContract.getReserve0();
-			const reserve1 = await poolContract.getReserve0();
+			const reserve1 = await poolContract.getReserve1();
 			const outputAmount = await poolContract.getOutputAmount(amount, reserve0, reserve1);
 			
 			setInputSwapAmount(Number(amount));
@@ -119,26 +131,34 @@ const Home = ({
 		}
 	}
 
-
 	const onInputLiquidityAmountChange = async(name: string, amount: number) => {
 		if (amount == 0) {
 			return;
 		}
 
-		// get pair name
 		try {
 			const poolContract = new ethers.Contract(pairs.get(getPairName()).pool, POOL_ABI, provider);
 			const reserve0 = await poolContract.getReserve0();
 			const reserve1 = await poolContract.getReserve0();
 
+			// now can add any liquidity
 			if (reserve0 == 0 && reserve1 == 0) {
 				setIsAddAnyLiquidity(true);
+				if (name == token0.name) {
+					setInputLiquidityAmount(amount);
+				} else {
+					setOutputLiquidityAmount(amount);
+				}
+			} else {
+				setIsAddAnyLiquidity(false);
+				if (name == token0.name) {
+					setInputLiquidityAmount(amount);
+					const outputLiquidity = await poolContract.getAmountToAdd(amount, true);
+					setOutputLiquidityAmount(outputLiquidity);
+				}
 			}
-
 			
-			setInputSwapAmount(Number(amount));
-			setOutputSwapAmount(Number(outputAmount));
-			console.log('input = ', amount, ' output = ', outputAmount);
+			console.log(inputLiquidityAmount, outputLiquidityAmount);
 		} catch (error) {
 			console.log(error);
 		}
@@ -150,53 +170,34 @@ const Home = ({
 			return;
 		}
 
-		// if wallet is connected than can set balance of wallet
-		const _token0: Token = {
-			name: pairs[0].nameA,
-			address: pairs[0].tokenA,
-			icon: icons.has(pairs[0].nameA) ? icons.get(pairs[0].nameA) : "",
-		};
-
-		const _token1: Token = {
-			name: pairs[0].nameB,
-			address: pairs[0].tokenB,
-			icon: icons.has(pairs[0].nameB) ? icons.get(pairs[0].nameB) : "",
-		};
-
-		const contract0 = new ethers.Contract(_token0.address, ERC20_ABI, provider);
-		const contract1 = new ethers.Contract(_token1.address, ERC20_ABI, provider);
+		const contract0 = new ethers.Contract(pairs[0].tokenA, ERC20_ABI, provider);
+		const contract1 = new ethers.Contract(pairs[0].tokenB, ERC20_ABI, provider);
 
 		try {
-			_token0.totalSupply = await contract0.totalSupply();
-			_token0.decimals = await contract0.decimals();
-			_token1.totalSupply = await contract1.totalSupply();
-			_token1.decimals = await contract1.decimals();
+			const _token0: Token = {
+				name: pairs[0].nameA,
+				address: pairs[0].tokenA,
+				icon: icons.has(pairs[0].nameA) ? icons.get(pairs[0].nameA) : "",
+				totalSupply: await contract0.totalSupply(),
+				decimals: await contract0.decimals(),
+				balance: localStorageWalletConnectHandler() ? await contract0.balanceOf(account) : 0,
+			};
+	
+			const _token1: Token = {
+				name: pairs[0].nameB,
+				address: pairs[0].tokenB,
+				icon: icons.has(pairs[0].nameB) ? icons.get(pairs[0].nameB) : "",
+				totalSupply: await contract1.totalSupply(),
+				decimals: await contract1.decimals(),
+				balance: localStorageWalletConnectHandler() ? await contract1.balanceOf(account) : 0,
+			};	
+
+			setToken0(_token0);
+			setToken1(_token1);	
 		} catch (error) {
 			console.log(error);
 			return;
 		}
-
-		if (localStorageWalletConnectHandler()) {
-			try {
-				console.log("account: ", account);
-				_token0.balance = await contract0.balanceOf(account);
-				_token1.balance = await contract1.balanceOf(account);
-			} catch (error) {
-				console.log(error);
-				return;
-			}
-		}
-
-		setToken0(_token0);
-		setToken1(_token1);
-
-		console.log(_token0);
-		console.log(_token1);
-	}
-
-	const onDirectionSwap =() => {
-		setToken0(token1);
-		setToken1(token0);
 	}
 
   	const getPools = async() => {
@@ -216,12 +217,22 @@ const Home = ({
 		let _pairs: Pair[] = [];
 		let pairsHm = new Map<string, Pair>();
 		for (const p of data?.pairs) {
+			const poolContract = new ethers.Contract(p.pool, POOL_ABI, provider);
+			const reserve0 = await poolContract.getReserve0();
+			const reserve1 = await poolContract.getReserve1();
+
+			if (reserve0 == 0 && reserve1 == 0) {
+				setIsAddAnyLiquidity(true);
+			}
+
 			const _pair: Pair = {
 				nameA: p.nameA,
 				nameB: p.nameB,
 				tokenA: p.tokenA,
 				tokenB: p.tokenB,
 				tokenLP: p.tokenLP,
+				reservesA: reserve0,
+				reservesB: reserve1,
 				pool: p.pool,
 			};
 
@@ -243,6 +254,9 @@ const Home = ({
 		}
 	};
 
+	/*
+		wallet connect / disconnect
+	*/
 	const connectWallet = async () => {
 		if (typeof window.ethereum === undefined) {
 			setWalletError("MetaMask is not installed. Please install it to use this feature.");
@@ -291,8 +305,52 @@ const Home = ({
         setAccount(null);
     }
 
+	/*
+		interface interaction
+	*/
 	const switchCard = () => {
 		setIsSwapTokensCard(!isSwapTokensCard);
+	}
+
+	const onDirectionSwap =() => {
+		setToken0(token1);
+		setToken1(token0);
+	}
+
+	/*
+		contracts interrcation
+	*/
+	const onApprove = async(name: string) => {
+		if (!localStorageWalletConnectHandler()) {
+			return;
+		}
+
+		console.log(name);
+
+		let amount: bigint;
+		let token: Token;
+		if (name == token0.name) {
+			token = token0;
+			amount = ethers.toBigInt(inputLiquidityAmount) * BigInt(Math.pow(10, Number(token.decimals)));
+		} else {
+			token = token0;
+			amount = ethers.toBigInt(outputLiquidityAmount) * BigInt(Math.pow(10, Number(token.decimals)));
+		}
+
+		try {
+			const browserProvider = new ethers.BrowserProvider(window.ethereum);
+			const signer = await browserProvider.getSigner();	
+			const tokenContract = new ethers.Contract(token.address, ERC20_ABI, signer);
+			const pair = getCurrentPair();
+
+			const allowance = await tokenContract.allowance(account, pair.pool);
+
+			console.log('allowance = ', allowance, amount);
+
+			await tokenContract.approve(pair.pool, amount);
+		} catch (error) {
+			console.log(error);
+		}
 	}
 
   	useEffect(() => {
@@ -340,10 +398,14 @@ const Home = ({
 			<LiquidityCard 
 				input={token0} 
 				output={token1}
+				pair={getCurrentPair()}
 				onDirectionSwap={onDirectionSwap}
 				onSwap={onSwap}
-				onInputAmountChange={onInputAmountChange}
+				onApprove={onApprove}
+				onInputAmountChange={onInputLiquidityAmountChange}
+				inputAmount={inputLiquidityAmount}
 				outputAmount={outputLiquidityAmount}
+				isAnyLiquidity={isAddAnyLiquidity}
 			/>
 			}
             

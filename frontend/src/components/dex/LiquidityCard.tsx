@@ -6,7 +6,7 @@ import TokenField from "./TokenField";
 import SwapDetails from "./SwapDetails";
 import { ethers } from "ethers";
 import { ALCHEMY_RPC_URL, ERC20_ABI } from "../constants";
-import { Token } from "../home";
+import { Token, Pair } from "../home";
 import LiquidityDetails from "./LiquidityDetails";
 
 interface InputToken {
@@ -25,6 +25,7 @@ interface InputToken {
 interface SwapCardProps {
   input?: Token;
   output?: Token;
+  pair?: Pair;
   inputAmount?: number;
   outputAmount?: number;
   onSwap?: () => void;
@@ -32,6 +33,8 @@ interface SwapCardProps {
   onInputAmountChange?: (name: string, amount: number) => void;
   onInputTokenSelect?: (token: string) => void;
   onOutputTokenSelect?: (token: string) => void;
+  onApprove?: (token: string) => void;
+  isAnyLiquidity?: boolean;
 }
 
 const toStringBalance = (balance: bigint, decimals: bigint) =>  {
@@ -52,6 +55,7 @@ const toStringBalance = (balance: bigint, decimals: bigint) =>  {
 const LiquidityCard = ({
   input, 
   output,
+  pair,
   inputAmount,
   outputAmount,
   onDirectionSwap = () => {},
@@ -59,6 +63,8 @@ const LiquidityCard = ({
   onInputAmountChange = (name: string, amount: number) => {},
   onInputTokenSelect = () => {},
   onOutputTokenSelect = () => {},
+  onApprove = (token: string) => {},
+  isAnyLiquidity = true,
 }: SwapCardProps) => {
 
   return (
@@ -74,7 +80,19 @@ const LiquidityCard = ({
           onAmountChange={onInputAmountChange}
           onTokenSelect={onInputTokenSelect}
         />
-
+        {
+            isAnyLiquidity ? 
+            <Button
+                className="w-full hover:scale-[1.02] transition-transform duration-300 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                size="lg"
+                onClick={() => {
+                    onApprove(input?.name);
+                }}
+            >
+                Approve
+            </Button>
+            : null
+        }
 
         <TokenField
           label="Max"
@@ -82,25 +100,44 @@ const LiquidityCard = ({
           tokenIcon={output?.icon}
           balance={toStringBalance(output?.balance, output?.decimals)}
           amount={outputAmount}
-          useInputField={false}
+          onAmountChange={onInputAmountChange}
+          useInputField={isAnyLiquidity ? true : false}
           onTokenSelect={onOutputTokenSelect}
         />
+
+        {
+            isAnyLiquidity ? 
+            <Button
+                className="w-full hover:scale-[1.02] transition-transform duration-300 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                size="lg"
+                onClick={() => {
+                    onApprove(output?.name);
+                }}
+            >
+                Approve
+            </Button>
+            : null
+        }
+
       </div>
 
         <LiquidityDetails 
             token0Name={input?.name}
             token1Name={output?.name}
-            reserves0={0}
-            reserves1={0}
+            reserves0={pair?.reservesA}
+            reserves1={pair?.reservesB}
         />
-
-      <Button
-        className="w-full hover:scale-[1.02] transition-transform duration-300 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-        size="lg"
-        onClick={onSwap}
-      >
-        Add liquidity
-      </Button>
+        {
+            !isAnyLiquidity ? 
+            <Button
+            className="w-full hover:scale-[1.02] transition-transform duration-300 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+            size="lg"
+            onClick={onSwap}
+          >
+            Add liquidity
+          </Button>
+            : null    
+        }
     </Card>
   );
 };

@@ -14,8 +14,8 @@ interface SwapDetailsProps {
   priceImpact?: string;
   token0Name?: string;
   token1Name?: string;
-  reserves0?: number;
-  reserves1?: number;
+  reserves0?: bigint;
+  reserves1?: bigint;
 }
 
 const LiquidityDetails = ({
@@ -46,7 +46,7 @@ const LiquidityDetails = ({
               </Tooltip>
             </TooltipProvider>
           </div>
-          <span className="text-sm font-medium">{reserves0} {token0Name}</span>
+          <span className="text-sm font-medium">{Number(reserves0)} {token0Name}</span>
         </div>
 
 
@@ -67,7 +67,7 @@ const LiquidityDetails = ({
               </Tooltip>
             </TooltipProvider>
           </div>
-          <span className="text-sm font-medium">{reserves1} {token1Name}</span>
+          <span className="text-sm font-medium">{Number(reserves1)} {token1Name}</span>
         </div>
       </div>
     </Card>
