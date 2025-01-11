@@ -205,10 +205,8 @@ contract DEXPool is IDEXPool {
         emit RemoveLiquidity(account, amount);
     }
 
-    function setFee(uint24 _fee) external onlyFactory {
-        require(fee != _fee, InvalidFeeValue(fee, _fee));
+    function updateFee(uint24 _fee) external onlyFactory {
         emit FeeUpdated(fee, _fee);
-
         fee = _fee;
     }
 }

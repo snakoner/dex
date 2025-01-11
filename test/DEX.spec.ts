@@ -102,7 +102,6 @@ describe("DEX test", function() {
 
         await pool.addLiquidity(addLiquidityData.amount0In, addLiquidityData.amount1In);
         const [reserve0, reserve1] = await pool.getReserves();
-        console.log(reserve0, reserve1);
         expect(await reserve0).to.be.eq(addLiquidityData.amount0In);
         expect(await reserve1).to.be.eq(addLiquidityData.amount1In);
     });
@@ -295,6 +294,22 @@ describe("DEX test", function() {
 
         expect(ownerATokenBalanceAfter - ownerATokenBalanceBefore).to.be.eq(addLiquidityData.amount0In);
         expect(ownerBTokenBalanceAfter - ownerBTokenBalanceBefore).to.be.eq(addLiquidityData.amount1In);
+    });
+
+    it ("Should be possible to set fee by factory", async function() {
+        const {factory, pool, aToken, bToken, owner} = await loadFixture(deploy);
+
+        let fee = await factory._fees(await pool.getAddress());
+        let feeFromPool = await pool.fee();
+        expect(fee).to.be.eq(feeFromPool);
+
+        await factory.updateFee(await aToken.getAddress(), await bToken.getAddress(), 40);
+        fee = await factory._fees(await pool.getAddress());
+        feeFromPool = await pool.fee();
+        expect(fee).to.be.eq(40);
+        expect(feeFromPool).to.be.eq(40);
+
+        await expect(pool.updateFee(100)).to.be.revertedWithCustomError(pool, "OnlyFactoryAllowed");
 
     });
 })

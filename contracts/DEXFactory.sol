@@ -4,6 +4,7 @@ pragma solidity ^0.8.28;
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { IDEXFactory } from "./interfaces/IDEXFactory.sol";
 import { DEXPoolDeployer } from "./DEXPoolDeployer.sol";
+import { IDEXPool } from "./interfaces/IDEXPool.sol";
 
 contract DEXFactory is IDEXFactory, DEXPoolDeployer, Ownable {
     // Mapping to store the fee associated with each pool
@@ -55,6 +56,7 @@ contract DEXFactory is IDEXFactory, DEXPoolDeployer, Ownable {
         // Update the pool mappings
         _pools[tokenA][tokenB] = pool;
         _pools[tokenB][tokenA] = pool;
+        _fees[pool] = fee;
 
         emit PoolCreated(tokenA, tokenB, fee, pool);
 
@@ -68,5 +70,16 @@ contract DEXFactory is IDEXFactory, DEXPoolDeployer, Ownable {
      */
     function getFee(address pool) external view returns (uint24) {
         return _fees[pool];
+    }
+
+    function updateFee(address tokenA, address tokenB, uint24 newFee) external onlyOwner {
+        address pool = _pools[tokenA][tokenB];
+        require(pool != address(0), PoolDoesntExist());
+        require(_fees[pool] != newFee, InvalidFeeUpdateValue(_fees[pool], newFee));
+
+        emit FeeUpdated(pool, _fees[pool], newFee);
+
+        _fees[pool] = newFee;
+        IDEXPool(pool).updateFee(newFee);
     }
 }

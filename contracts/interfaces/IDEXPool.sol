@@ -62,4 +62,6 @@ interface IDEXPool {
     ) external;
 
     function getReserves() external view returns (uint256, uint256);
+
+    function updateFee(uint24 _fee) external;
 }
