@@ -1,7 +1,7 @@
 import { loadFixture, ethers, expect } from "./setup";
 
-const { abi: poolABI } = require("../artifacts/contracts/DEXPool.sol/DEXPool.json");
-const { abi: erc20ABI } = require("../artifacts/contracts/LiquidityProviderERC20.sol/LiquidityProviderERC20.json");
+const { abi: poolABI } = require("../artifacts/contracts/DEXSwapPool.sol/DEXSwapPool.json");
+const { abi: erc20ABI } = require("../artifacts/contracts/DEXSwapLiquidityProviderERC20.sol/DEXSwapLiquidityProviderERC20.json");
 
 const lpTokenName = "DexSwap ATK/BTK LP Token";
 const lpTokenSymbol = "DS-ATK-BTK-LP";
@@ -9,7 +9,7 @@ const fee: Number = 20;      // 0.2, precision = 10e4
 const mint0Amount = 1000000000;
 const mint1Amount = 20000000;
 
-describe("DEX test", function() {
+describe("DEXSwap test", function() {
     async function deploy() {
         const owner = (await ethers.getSigners())[0];
         const account = (await ethers.getSigners())[1];
@@ -25,7 +25,7 @@ describe("DEX test", function() {
         await bToken.waitForDeployment();
 
         // factory
-        const factoryFactory = await ethers.getContractFactory("DEXFactory");
+        const factoryFactory = await ethers.getContractFactory("DEXSwapFactory");
         const factory = await factoryFactory.deploy();
         await factory.waitForDeployment();
 
