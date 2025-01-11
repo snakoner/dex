@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
+import "@openzeppelin/contracts/utils/math/Math.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-
 import { IDEXPoolDeployer } from "./interfaces/IDEXPoolDeployer.sol";
 import { IDEXPool } from "./interfaces/IDEXPool.sol";
 import { LiquidityProviderERC20 } from "./LiquidityProviderERC20.sol";
@@ -21,26 +21,34 @@ contract DEXPool is IDEXPool {
     address immutable public token0;
     address immutable public token1;
     address immutable public lpToken;
-    uint24 immutable public fee;    // 10e3
+    uint24 public fee;    // 10e4
+    uint48 public constant PRECISION = 10**4;
 
     constructor() {
         (factory, token0, token1, lpToken, fee) = IDEXPoolDeployer(msg.sender).parameters();
+
+        emit FeeUpdated(0, fee);
+    }
+
+    modifier onlyFactory() {
+        require(msg.sender == factory, OnlyFactoryAllowed());
+        _;
+    }
+
+
+    function getReserves() public view returns (uint256, uint256) {
+        return (
+            IERC20(token0).balanceOf(address(this)),
+            IERC20(token1).balanceOf(address(this))
+        );
     }
 
     /**
      * @dev Returns the reserve balance of token0 in the pool.
-     * @return The balance of token0 held by the contract.
+     * @return Th
     */
-    function getReserve0() public view returns (uint256) {
+    function  _getReserve0() private view returns (uint256) {
         return IERC20(token0).balanceOf(address(this));
-    }
-
-    /**
-     * @dev Returns the reserve balance of token1 in the pool.
-     * @return The balance of token1 held by the contract.
-    */
-    function getReserve1() public view returns (uint256) {
-        return IERC20(token1).balanceOf(address(this));
     }
 
     /**
@@ -49,7 +57,7 @@ contract DEXPool is IDEXPool {
     */
     function getFactory() public view returns (address) {
         return factory;
-    }
+    } 
 
     /**
      * @dev Calculates the output amount of the opposite token for a given input amount.
@@ -63,8 +71,8 @@ contract DEXPool is IDEXPool {
         uint256 inReserve,
         uint256 outReserve
     ) public view returns (uint256) {
-        uint256 amountWithFee = amount * (1000 - fee);
-        uint256 outAmount = (amountWithFee * outReserve) / ((inReserve * 1000) + amountWithFee);
+        uint256 amountWithFee = amount * (PRECISION - fee);
+        uint256 outAmount = Math.mulDiv(amountWithFee, outReserve, (inReserve * PRECISION) + amountWithFee);
 
         return outAmount;
     }
@@ -79,13 +87,12 @@ contract DEXPool is IDEXPool {
         uint256 amountIn, 
         bool zeroToOne
     ) public view returns (uint256) {
-        (uint256 _reserve0, uint256 _reserve1) = zeroToOne 
-            ? (getReserve0(), getReserve1())
-            : (getReserve1(), getReserve0());
+        (uint256 _reserve0, uint256 _reserve1) = getReserves();
+        if (!zeroToOne) {
+            (_reserve0, _reserve1) = (_reserve1, _reserve0);
+        }
 
-        uint256 requiredAmount = amountIn * _reserve1 / (_reserve0 + amountIn);
-
-        return requiredAmount;
+        return Math.mulDiv(amountIn, _reserve1, _reserve0 + amountIn, Math.Rounding.Ceil);
     }
 
     /**
@@ -96,8 +103,10 @@ contract DEXPool is IDEXPool {
      */
     function getAmountsFromLp(uint amount) public view returns (uint256, uint256) {
         uint256 _totalSupply = LiquidityProviderERC20(lpToken).totalSupply();
-        uint256 token0Amount = (IERC20(token0).balanceOf(address(this)) * amount) / _totalSupply;
-        uint256 token1Amount = (IERC20(token1).balanceOf(address(this)) * amount) / _totalSupply;
+        (uint256 _reserve0, uint256 _reserve1) = getReserves();
+
+        uint256 token0Amount = Math.mulDiv(_reserve0, amount, _totalSupply);
+        uint256 token1Amount = Math.mulDiv(_reserve1, amount, _totalSupply);
 
         return (token0Amount, token1Amount);
     }
@@ -116,21 +125,24 @@ contract DEXPool is IDEXPool {
         bool zeroToOne
     ) external {
         require(amountIn > 0, InvalidInputAmount());
-        (uint256 _reserve0, uint256 _reserve1) = zeroToOne 
-            ? (getReserve0(), getReserve1()) 
-            : (getReserve1(), getReserve0());
+
+        (uint256 _reserve0, uint256 _reserve1) = getReserves();
+        if (!zeroToOne) {
+            (_reserve0, _reserve1) = (_reserve1, _reserve0);
+        }
 
         uint256 amountOut = getOutputAmount(amountIn, _reserve0, _reserve1);
-        require(amountOut >= amountOutMin, BadSlippage(amountOutMin, amountOut));
+        require(amountOut >= amountOutMin, InsufficientSlippageSet(amountOutMin, amountOut));
 
+        address account = msg.sender;
         (address _token0, address _token1) = zeroToOne 
             ? (token0, token1) 
             : (token1, token0);
 
-        IERC20(_token0).transferFrom(msg.sender, address(this), amountIn);
-        IERC20(_token1).transfer(msg.sender, amountOut);
+        IERC20(_token0).transferFrom(account, address(this), amountIn);
+        IERC20(_token1).transfer(account, amountOut);
 
-        emit SwapTokens(msg.sender, amountIn, amountOut, zeroToOne);
+        emit SwapTokens(account, amountIn, amountOut, zeroToOne);
     }
 
     // @example: reserve0 = 100, reserve1 = 10
@@ -146,28 +158,30 @@ contract DEXPool is IDEXPool {
         uint256 amount0In,
         uint256 amount1In
     ) external {
-        // we are sure that if token0 reserve is zero than token1 reserve is also zero
-        if (getReserve0() == 0) {
-            IERC20(token0).transferFrom(msg.sender, address(this), amount0In);
-            IERC20(token1).transferFrom(msg.sender, address(this), amount1In);
+        address account = msg.sender;
 
-            LiquidityProviderERC20(lpToken).mint(msg.sender, amount0In);
+        // we are sure that if token0 reserve is zero than token1 reserve is also zero
+        if (_getReserve0() == 0) {
+            IERC20(token0).transferFrom(account, address(this), amount0In);
+            IERC20(token1).transferFrom(account, address(this), amount1In);
+
+            LiquidityProviderERC20(lpToken).mint(account, amount0In);
         } else {
             // always considering that token0 is first token
             uint256 requiredAmount = getAmountToAdd(amount0In, true);        
             require(amount1In >= requiredAmount, WrongLiquidityAmout(requiredAmount, amount1In));
 
-            IERC20(token0).transferFrom(msg.sender, address(this), amount0In);
-            IERC20(token1).transferFrom(msg.sender, address(this), requiredAmount);
+            IERC20(token0).transferFrom(account, address(this), amount0In);
+            IERC20(token1).transferFrom(account, address(this), requiredAmount);
             
             // mint LP tokens 
             LiquidityProviderERC20 lp = LiquidityProviderERC20(lpToken);
-            uint256 lpIssued = (lp.totalSupply() * amount0In) / getReserve0();
+            uint256 lpIssued = (lp.totalSupply() * amount0In) / _getReserve0();
 
-            lp.mint(msg.sender, lpIssued);
+            lp.mint(account, lpIssued);
         }
 
-        emit AddLiquidity(msg.sender, amount0In, amount1In);
+        emit AddLiquidity(account, amount0In, amount1In);
     }
 
     /**
@@ -179,13 +193,22 @@ contract DEXPool is IDEXPool {
     ) external {
         require(amount > 0, InvalidInputAmount());
 
+        address account = msg.sender;
+
         (uint256 token0Amount, uint256 token1Amount) = getAmountsFromLp(amount);
         LiquidityProviderERC20 _lpToken = LiquidityProviderERC20(lpToken);
 
-        _lpToken.burn(msg.sender, amount);
-        IERC20(token0).transfer(msg.sender, token0Amount);
-        IERC20(token1).transfer(msg.sender, token1Amount);
+        _lpToken.burn(account, amount);
+        IERC20(token0).transfer(account, token0Amount);
+        IERC20(token1).transfer(account, token1Amount);
 
-        emit RemoveLiquidity(msg.sender, amount);
+        emit RemoveLiquidity(account, amount);
+    }
+
+    function setFee(uint24 _fee) external onlyFactory {
+        require(fee != _fee, InvalidFeeValue(fee, _fee));
+        emit FeeUpdated(fee, _fee);
+
+        fee = _fee;
     }
 }

@@ -6,7 +6,12 @@ interface IDEXPool {
 
     error InsufficientBalance();
 
-    error BadSlippage(
+    error InvalidFeeValue(
+        uint24 oldFee,
+        uint24 newFee
+    );
+
+    error InsufficientSlippageSet(
         uint256 minAmount, 
         uint256 requiredAmount
     );
@@ -15,6 +20,8 @@ interface IDEXPool {
         uint256 required, 
         uint256 value
     );
+
+    error OnlyFactoryAllowed();
 
     event SwapTokens(
         address indexed account,
@@ -34,6 +41,11 @@ interface IDEXPool {
         uint256 amount
     );
 
+    event FeeUpdated(
+        uint24 oldFee,
+        uint24 newFee
+    );
+
     function swap(
         uint256 amountIn, 
         uint256 amountOutMin, 
@@ -49,7 +61,5 @@ interface IDEXPool {
         uint256 amount
     ) external;
 
-    function getReserve0() external view returns (uint256);
-
-    function getReserve1() external view returns (uint256);
+    function getReserves() external view returns (uint256, uint256);
 }

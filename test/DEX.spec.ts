@@ -1,29 +1,11 @@
 import { loadFixture, ethers, expect } from "./setup";
 
-const poolABI = [
-    "function getReserve0() public view returns (uint256)",
-    "function getReserve1() public view returns (uint256)",
-    "function getFactory() public view returns (address)",
-    "function getAmountToAdd(uint256 amountIn, bool zeroToOne) public view returns (uint256)",
-    "function getAmountsFromLp(uint amount) public view returns (uint256, uint256)",
-    "function swap(uint256 amountIn, uint256 amountOutMin, bool zeroToOne) external",
-    "function addLiquidity(uint256 amount0In, uint256 amount1In) external",
-    "function removeLiquidity(uint256 amount) external",
-    "function getOutputAmount(uint256 amount, uint256 inReserve, uint256 outReserve) public view returns (uint256)",
-    "function lpToken() public view returns (address)",
-    
-];
-
-const erc20ABI = [
-    "function balanceOf(address account) external view returns (uint256)",
-    "function owner() public view returns (address)",
-    "function mint(address account, uint256 amount) external",
-    "function totalSupply() public view returns (uint256)"
-];
+const { abi: poolABI } = require("../artifacts/contracts/DEXPool.sol/DEXPool.json");
+const { abi: erc20ABI } = require("../artifacts/contracts/LiquidityProviderERC20.sol/LiquidityProviderERC20.json");
 
 const lpTokenName = "DexSwap ATK/BTK LP Token";
 const lpTokenSymbol = "DS-ATK-BTK-LP";
-const fee = 2;      // 0.2, max = 10e3
+const fee: Number = 20;      // 0.2, precision = 10e4
 const mint0Amount = 1000000000;
 const mint1Amount = 20000000;
 
@@ -69,7 +51,9 @@ describe("DEX test", function() {
         await aToken.approve(await pool.getAddress(), mint0Amount);
         await bToken.approve(await pool.getAddress(), mint1Amount);
 
-        return {factory, aToken, bToken, pool, lpToken, owner, account};
+        const precision = await pool.PRECISION();
+
+        return {factory, aToken, bToken, pool, lpToken, owner, account, precision};
     }
 
     it ("Should not allow to mint/burn lp tokens by any except pool", async function() {
@@ -117,9 +101,10 @@ describe("DEX test", function() {
         };
 
         await pool.addLiquidity(addLiquidityData.amount0In, addLiquidityData.amount1In);
-
-        expect(await pool.getReserve0()).to.be.eq(addLiquidityData.amount0In);
-        expect(await pool.getReserve1()).to.be.eq(addLiquidityData.amount1In);
+        const [reserve0, reserve1] = await pool.getReserves();
+        console.log(reserve0, reserve1);
+        expect(await reserve0).to.be.eq(addLiquidityData.amount0In);
+        expect(await reserve1).to.be.eq(addLiquidityData.amount1In);
     });
 
     it ("Should create lp tokens with same amount as tokenA", async function() {
@@ -173,22 +158,23 @@ describe("DEX test", function() {
         addLiquidity2Data.amount1In = await pool.getAmountToAdd(addLiquidity2Data.amount0In, true);
         await pool.addLiquidity(addLiquidity2Data.amount0In, addLiquidity2Data.amount1In);
 
-        expect(await pool.getReserve0()).to.be.eq(
+        const [reserve0, reserve1] = await pool.getReserves();
+        expect(reserve0).to.be.eq(
             ethers.toBigInt(addLiquidity1Data.amount0In) + 
             ethers.toBigInt(addLiquidity2Data.amount0In));
-        expect(await pool.getReserve1()).to.be.eq(
+        expect(reserve1).to.be.eq(
             ethers.toBigInt(addLiquidity1Data.amount1In) + 
             ethers.toBigInt(addLiquidity2Data.amount1In));
     });
 
     it ("Should swap small amount with small slippage", async function() {
-        const {pool} = await loadFixture(deploy);        
+        const {pool, precision} = await loadFixture(deploy);        
 
         // 1. swap A -> B
         const swapData = {
             amountIn: 10000,    // 10k
             amountOutMin: 0,    // calc later
-            slippage: 10,       // 1%
+            slippage: 100,       // 1%
         };
 
         const addLiquidity1Data = {
@@ -201,8 +187,9 @@ describe("DEX test", function() {
             addLiquidity1Data.amount1In
         );
 
-        const price = Number(await pool.getReserve0()) / Number(await pool.getReserve1());
-        swapData.amountOutMin = Math.floor((swapData.amountIn / price * (1 - (swapData.slippage + fee) / 1000.)));
+        const [reserve0, reserve1] = await pool.getReserves();
+        const price = Number(reserve0) / Number(reserve1);
+        swapData.amountOutMin = Math.floor((swapData.amountIn / price * (1 - (swapData.slippage + fee) / Number(precision))));
 
         await pool.swap(
             ethers.toBigInt(swapData.amountIn), 
@@ -213,13 +200,13 @@ describe("DEX test", function() {
     
 
     it ("Should not swap large amount with small slippage", async function() {
-        const {pool} = await loadFixture(deploy);        
+        const {pool, precision} = await loadFixture(deploy);        
 
         // 1. swap A -> B
         const swapData = {
             amountIn: 1000000,    // 1kk
             amountOutMin: 0,    // calc later
-            slippage: 10,       // 1%
+            slippage: 100,       // 1%
         };
 
         const addLiquidity1Data = {
@@ -232,8 +219,10 @@ describe("DEX test", function() {
             addLiquidity1Data.amount1In
         );
 
-        const price = Number(await pool.getReserve0()) / Number(await pool.getReserve1());
-        swapData.amountOutMin = Math.floor((swapData.amountIn / price * (1 - (swapData.slippage + fee) / 1000.)));
+
+        const [reserve0, reserve1] = await pool.getReserves();
+        const price = Number(reserve0) / Number(reserve1);
+        swapData.amountOutMin = Math.floor((swapData.amountIn / price * (1 - (swapData.slippage + fee) / Number(precision))));
 
         try {
             await pool.swap(
@@ -246,13 +235,13 @@ describe("DEX test", function() {
     });
     
     it ("Should swap large amount with large slippage", async function() {
-        const {pool} = await loadFixture(deploy);        
+        const {pool, precision} = await loadFixture(deploy);        
 
         // 1. swap A -> B
         const swapData = {
             amountIn: 1000000,    // 1kk
             amountOutMin: 0,    // calc later
-            slippage: 120,       // 12%
+            slippage: 1200,       // 12%
         };
 
         const addLiquidity1Data = {
@@ -265,8 +254,9 @@ describe("DEX test", function() {
             addLiquidity1Data.amount1In
         );
 
-        const price = Number(await pool.getReserve0()) / Number(await pool.getReserve1());
-        swapData.amountOutMin = Math.floor((swapData.amountIn / price * (1 - (swapData.slippage + fee) / 1000.)));
+        const [reserve0, reserve1] = await pool.getReserves();
+        const price = Number(reserve0) / Number(reserve1);
+        swapData.amountOutMin = Math.floor((swapData.amountIn / price * (1 - (swapData.slippage + fee) / Number(precision))));
 
         await pool.swap(
             ethers.toBigInt(swapData.amountIn), 
@@ -294,10 +284,11 @@ describe("DEX test", function() {
         await pool.removeLiquidity(await lpToken.balanceOf(owner.address));
 
         // make sure that there is not liquidity in pool
+        const [reserve0, reserve1] = await pool.getReserves();
         expect(await lpToken.balanceOf(owner.address)).to.be.eq(0);
         expect(await lpToken.totalSupply()).to.be.eq(0);
-        expect(await pool.getReserve0()).to.be.eq(0);
-        expect(await pool.getReserve1()).to.be.eq(0);
+        expect(reserve0).to.be.eq(0);
+        expect(reserve1).to.be.eq(0);
 
         const ownerATokenBalanceAfter = await aToken.balanceOf(owner.address);
         const ownerBTokenBalanceAfter = await bToken.balanceOf(owner.address);
