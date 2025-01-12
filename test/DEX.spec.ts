@@ -299,10 +299,17 @@ describe("DEXSwap test", function() {
     it ("Should be possible to set fee by factory", async function() {
         const {factory, pool, aToken, bToken, owner} = await loadFixture(deploy);
 
+        // check that fee from factory is equal to fee from pool
         let fee = await factory._fees(await pool.getAddress());
         let feeFromPool = await pool.fee();
         expect(fee).to.be.eq(feeFromPool);
 
+        // try to set the same fee
+        await expect(
+            factory.updateFee(await aToken.getAddress(), await bToken.getAddress(), fee)
+        ).to.be.revertedWithCustomError(factory, "InvalidFeeUpdateValue")
+
+        // set new fee
         await factory.updateFee(await aToken.getAddress(), await bToken.getAddress(), 40);
         fee = await factory._fees(await pool.getAddress());
         feeFromPool = await pool.fee();

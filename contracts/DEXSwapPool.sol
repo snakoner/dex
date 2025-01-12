@@ -44,14 +44,6 @@ contract DEXSwapPool is IDEXSwapPool {
     }
 
     /**
-     * @dev Returns the reserve balance of token0 in the pool.
-     * @return Th
-    */
-    function  _getReserve0() private view returns (uint256) {
-        return IERC20(token0).balanceOf(address(this));
-    }
-
-    /**
      * @dev Returns the address of the factory that deployed this pool.
      * @return The factory address.
     */
@@ -159,9 +151,9 @@ contract DEXSwapPool is IDEXSwapPool {
         uint256 amount1In
     ) external {
         address account = msg.sender;
-
+        (uint256 _reserve0, ) = getReserves();
         // we are sure that if token0 reserve is zero than token1 reserve is also zero
-        if (_getReserve0() == 0) {
+        if (_reserve0 == 0) {
             IERC20(token0).transferFrom(account, address(this), amount0In);
             IERC20(token1).transferFrom(account, address(this), amount1In);
 
@@ -176,7 +168,8 @@ contract DEXSwapPool is IDEXSwapPool {
             
             // mint LP tokens 
             DEXSwapLiquidityProviderERC20 lp = DEXSwapLiquidityProviderERC20(lpToken);
-            uint256 lpIssued = (lp.totalSupply() * amount0In) / _getReserve0();
+            (_reserve0, ) = getReserves();
+            uint256 lpIssued = (lp.totalSupply() * amount0In) / _reserve0;
 
             lp.mint(account, lpIssued);
         }
